@@ -3,12 +3,14 @@ package main
 import (
     "encoding/json"
     "fmt"
+    "strings"
     "io/ioutil"
     "net/http"
 
     admissionv1 "k8s.io/api/admission/v1"
     v1 "k8s.io/api/core/v1"
     metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+    "github.com/evanphx/json-patch"
     "k8s.io/apimachinery/pkg/runtime"
     "k8s.io/apimachinery/pkg/runtime/serializer"
 )
@@ -20,6 +22,12 @@ var (
 
 func init() {
     _ = admissionv1.AddToScheme(scheme)
+}
+
+func escapeJSONPointer(s string) string {
+    // Replace `/` with `~1` to escape JSON Pointer paths.
+    s = strings.ReplaceAll(s, "/", "~1")
+    return s
 }
 
 func mutatePods(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -44,21 +52,52 @@ func mutatePods(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse 
         }
     }
 
-    // Check if the RuntimeClassName is set
-    if pod.Spec.RuntimeClassName != nil {
-        runtimeClassName := *pod.Spec.RuntimeClassName
+    // Create patches for both limits and requests
+    var patches []map[string]interface{}
+    for i, container := range pod.Spec.Containers {
+        // Handle limits
+        if limits := container.Resources.Limits; limits != nil {
+            newLimits := make(map[string]interface{})
+            for key, value := range limits {
+                keyStr := string(key)
+                if strings.HasPrefix(keyStr, "mdev.s390.ibm.com/") {
+                    newKey := strings.Replace(keyStr, "mdev.s390.ibm.com", "cex.s390.ibm.com", 1)
+                    fmt.Printf("Key in limits is updated from %s to %s\n", keyStr, newKey)
+                    newLimits[newKey] = value
+                } else {
+                    newLimits[keyStr] = value
+                }
+            }
+            patches = append(patches, map[string]interface{}{
+                "op":    "replace",
+                "path":  fmt.Sprintf("/spec/containers/%d/resources/limits", i),
+                "value": newLimits,
+            })
+        }
 
-        // Inject the RuntimeClassName as an environment variable into all containers
-        for i := range pod.Spec.Containers {
-            pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, v1.EnvVar{
-                Name:  "RUNTIME_CLASS",
-                Value: runtimeClassName,
+        // Handle requests
+        if requests := container.Resources.Requests; requests != nil {
+            newRequests := make(map[string]interface{})
+            for key, value := range requests {
+                keyStr := string(key)
+                if strings.HasPrefix(keyStr, "mdev.s390.ibm.com/") {
+                    newKey := strings.Replace(keyStr, "mdev.s390.ibm.com", "cex.s390.ibm.com", 1)
+                    fmt.Printf("Key in requests is updated from %s to %s\n", keyStr, newKey)
+                    newRequests[newKey] = value
+                } else {
+                    newRequests[keyStr] = value
+                }
+            }
+            patches = append(patches, map[string]interface{}{
+                "op":    "replace",
+                "path":  fmt.Sprintf("/spec/containers/%d/resources/requests", i),
+                "value": newRequests,
             })
         }
     }
 
     // Create JSON patch response
-    patchBytes, err := json.Marshal(pod.Spec.Containers)
+    patchBytes, err := json.Marshal(patches)
     if err != nil {
         return &admissionv1.AdmissionResponse{
             Result: &metav1.Status{
@@ -67,12 +106,31 @@ func mutatePods(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse 
         }
     }
 
+    // Log the generated patch
+    fmt.Printf("Generated Patch: %s\n", string(patchBytes))
+
+    // Apply the patch locally to simulate the mutation
+    patchedPod, err := applyPatch(raw, patchBytes)
+    if err != nil {
+        fmt.Printf("Error applying patch: %v\n", err)
+    } else {
+        fmt.Printf("Mutated Pod Spec: %s\n", string(patchedPod))
+    }
+
     patchType := admissionv1.PatchTypeJSONPatch
     return &admissionv1.AdmissionResponse{
         Allowed:   true,
-        Patch:     []byte(fmt.Sprintf("[{\"op\":\"replace\",\"path\":\"/spec/containers\",\"value\":%s}]", string(patchBytes))),
+        Patch:     patchBytes,
         PatchType: &patchType,
     }
+}
+
+func applyPatch(original []byte, patch []byte) ([]byte, error) {
+    patchObj, err := jsonpatch.DecodePatch(patch)
+    if err != nil {
+        return nil, err
+    }
+    return patchObj.Apply(original)
 }
 
 func serve(w http.ResponseWriter, r *http.Request) {
