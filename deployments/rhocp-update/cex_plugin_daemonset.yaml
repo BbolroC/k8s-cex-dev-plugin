@@ -23,19 +23,9 @@ spec:
       # used to modify some sysfs entries for the container that uses CEX crypto
       # resources.  If the compute nodes do not have SELinux enabled, the Init
       # Container is not needed.
-      initContainers:
-      - name: shadowsysfs
-        image: 'registry.redhat.io/ubi8-minimal'
-        command: ["/bin/sh"]
-        args: ["-c", "mkdir -p -m 0755 /var/tmp/shadowsysfs && chcon -t container_file_t /var/tmp/shadowsysfs"]
-        securityContext:
-          privileged: true
-        volumeMounts:
-          - name: vartmp
-            mountPath: /var/tmp
       containers:
       - name: cex-plugin
-        image: 'quay.io/ibm/ibm-cex-plugin-cm:v1.1.2'
+        image: 'localhost:5000/ibm-cex-plugin-cm:v1.1.3'
         imagePullPolicy: Always
         securityContext:
           privileged: true

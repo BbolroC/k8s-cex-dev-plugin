@@ -1,4 +1,41 @@
 {
-    "cryptoconfigsets":
-    []
+"cryptoconfigsets":
+[
+{
+    "setname":   "CCA_for_customer_1",
+    "project":   "customer-1",
+    "cexmode":   "cca",
+    "apqns":
+    [
+	{
+	    "adapter":    0,
+	    "domain":    41,
+	    "machineid": ""
+	},
+	{
+	    "adapter":    0,
+	    "domain":    42,
+	    "machineid": ""
+	}
+    ]
+},
+{
+    "setname":   "EP11_for_customer_1",
+    "project":   "customer-1",
+    "cexmode":   "ep11",
+    "apqns":
+    [
+	{
+	    "adapter":    4,
+	    "domain":    41,
+	    "machineid": ""
+	},
+	{
+	    "adapter":    4,
+	    "domain":    42,
+	    "machineid": ""
+	}
+    ]
+}
+]
 }

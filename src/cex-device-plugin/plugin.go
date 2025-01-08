@@ -25,6 +25,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"sort"
 	"time"
 
@@ -317,6 +318,12 @@ func (p *ZCryptoResPlugin) Allocate(ctx context.Context, req *kdp.AllocateReques
 
 	rsp := new(kdp.AllocateResponse)
 	for _, careq := range req.GetContainerRequests() {
+		runtimeClass := os.Getenv("RUNTIME_CLASS")
+		if runtimeClass == "" {
+			log.Printf("RUNTIME_CLASS environment variable: EMPTY")
+		} else {
+			log.Printf("RUNTIME_CLASS environment variable: %s\n", runtimeClass)
+		}
 		//fmt.Printf("debug Plugin['%s']: Allocate(): Container allocrequest=%v\n", p.resource, careq)
 		carsp := kdp.ContainerAllocateResponse{}
 		for _, id := range careq.GetDevicesIDs() {

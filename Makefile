@@ -19,7 +19,7 @@
 #
 
 # Registry (ending with /), leave blank for using localhost
-REGISTRY :=
+REGISTRY := localhost:5000/
 NAME := ibm-cex-plugin-cm
 VERSION := $(shell $(PWD)/version.sh -v)
 LABELNAME := $(NAME)-$(VERSION)
