@@ -6,10 +6,11 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: sharevol-docker-cex
+  name: sharevol-kata-mdev
   namespace: customer-1
 spec:
   terminationGracePeriodSeconds: 0
+  runtimeClassName: kata
   containers:
   - name: test
     image: localhost:5000/vfio-ap-test:latest
@@ -21,7 +22,7 @@ spec:
         mountPath: "/tmp/cache"
     resources:
       limits:
-        cex.s390.ibm.com/EP11_for_customer_1: 1
+        cex.s390.ibm.com/CCA_for_customer_1: 1
   volumes:
   - name: host-empty-vol
     emptyDir: {}
