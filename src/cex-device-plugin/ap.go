@@ -109,8 +109,8 @@ func apScanQueueDir(carddir, queuedir string) (*APQN, error) {
 
 	online, err := apReadFirstLineFromFile(apsysfsdevsdir + "/" + carddir + "/" + queuedir + "/" + "online")
 	if err != nil {
-		log.Printf("Ap: Error reading 'online' file from queuedir '%s': %s\n", carddir, err)
-		return nil, fmt.Errorf("Ap: Error reading 'online' file from queuedir '%s': %w", carddir, err)
+		log.Printf("Ap: Error reading 'online' file from queuedir '%s': %s: the device is exported\n", carddir, err)
+		return nil, fmt.Errorf("Ap: %s being exported", queuedir)
 	}
 
 	a := new(APQN)
@@ -172,7 +172,7 @@ func apScanCardDir(carddir string) (APQNList, error) {
 		//fmt.Printf("debug: scaning queuedir %s\n", fname)
 		a, err := apScanQueueDir(carddir, fname)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		a.Gen = cgen
 		a.Mode = cmode
