@@ -1,0 +1,32 @@
+#
+# Copyright (c) 2019 Intel Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sharevol-kata-cex
+  namespace: customer-1
+spec:
+  terminationGracePeriodSeconds: 0
+  runtimeClassName: kata
+  containers:
+  - name: test
+    image: localhost:5000/vfio-ap-test:latest
+    command: ["tail", "-f", "/dev/null"]
+    volumeMounts:
+      - name: host-empty-vol
+        mountPath: "/host/cache"
+      - name: memory-empty-vol
+        mountPath: "/tmp/cache"
+    resources:
+      limits:
+        cex.s390.ibm.com/CCA_for_customer_1: 1
+  volumes:
+  - name: host-empty-vol
+    emptyDir: {}
+  - name: memory-empty-vol
+    emptyDir:
+      medium: Memory
+      sizeLimit: "50M"
