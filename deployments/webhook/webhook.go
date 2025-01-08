@@ -54,14 +54,23 @@ func mutatePods(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse 
 
     // Create patches for both limits and requests
     var patches []map[string]interface{}
+    runtimeClassName := pod.Spec.RuntimeClassName
+    allowedRuntimeClasses := map[string]bool {
+        "kata": true,
+        "kata-qemu": true,
+        "kata-qemu-se": true,
+    }
     for i, container := range pod.Spec.Containers {
         // Handle limits
         if limits := container.Resources.Limits; limits != nil {
             newLimits := make(map[string]interface{})
             for key, value := range limits {
                 keyStr := string(key)
-                if strings.HasPrefix(keyStr, "mdev.s390.ibm.com/") {
-                    newKey := strings.Replace(keyStr, "mdev.s390.ibm.com", "cex.s390.ibm.com", 1)
+                if runtimeClassName != nil &&
+                    allowedRuntimeClasses[*runtimeClassName] &&
+		    strings.HasPrefix(keyStr, "cex.s390.ibm.com/") {
+
+                    newKey := strings.Replace(keyStr, "cex.s390.ibm.com", "mdev.s390.ibm.com", 1)
                     fmt.Printf("Key in limits is updated from %s to %s\n", keyStr, newKey)
                     newLimits[newKey] = value
                 } else {
@@ -80,8 +89,11 @@ func mutatePods(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse 
             newRequests := make(map[string]interface{})
             for key, value := range requests {
                 keyStr := string(key)
-                if strings.HasPrefix(keyStr, "mdev.s390.ibm.com/") {
-                    newKey := strings.Replace(keyStr, "mdev.s390.ibm.com", "cex.s390.ibm.com", 1)
+                if runtimeClassName != nil &&
+                    allowedRuntimeClasses[*runtimeClassName] &&
+		    strings.HasPrefix(keyStr, "cex.s390.ibm.com/") {
+
+                    newKey := strings.Replace(keyStr, "cex.s390.ibm.com", "mdev.s390.ibm.com", 1)
                     fmt.Printf("Key in requests is updated from %s to %s\n", keyStr, newKey)
                     newRequests[newKey] = value
                 } else {
