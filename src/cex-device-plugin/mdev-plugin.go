@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sort"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/kubevirt/device-plugin-manager/pkg/dpm"
@@ -44,30 +45,159 @@ type ZMdevDPMLister struct {
 type ZMdevResPlugin struct {
 	resource    string
 	lister      *ZMdevDPMLister
+	ccset       *CryptoConfigSet
+	tag         []byte
+	apqns       APQNList
 	devices     []*kdp.Device
 	changedChan chan struct{}
 	stopChan    chan struct{}
 }
 
-func (p *ZMdevResPlugin) initDevices() {
-	p.devices = []*kdp.Device{}
-	for _, setname := range p.lister.setnameslist {
-		p.devices = append(p.devices, &kdp.Device{
-			ID:     setname,
-			Health: kdp.Healthy, // Default to healthy
-		})
+//func (p *ZMdevResPlugin) initDevices() {
+//	p.devices = []*kdp.Device{}
+//	for _, setname := range p.lister.setnameslist {
+//		p.devices = append(p.devices, &kdp.Device{
+//			ID:     setname,
+//			Health: kdp.Healthy, // Default to healthy
+//		})
+//	}
+//	log.Printf("ZMdevResPlugin['%s']: Initialized devices: %v\n", p.resource, p.devices)
+//}
+
+func (p *ZMdevResPlugin) filterAPQNs(ccset *CryptoConfigSet, apqnlist APQNList) APQNList {
+	var apqns APQNList
+	if ccset == nil {
+		return apqns
 	}
-	log.Printf("ZMdevResPlugin['%s']: Initialized devices: %v\n", p.resource, p.devices)
+
+	for _, a := range apqnlist {
+		for _, c := range ccset.APQNDefs {
+			if a.Adapter != c.Adapter || a.Domain != c.Domain {
+				continue
+			}
+			if len(c.MachineId) > 0 && p.lister.machineid != c.MachineId {
+				continue
+			}
+			if len(ccset.MinCexGen) > 0 && a.Gen < ccset.MinCexGen {
+				log.Printf("MDEV Plugin['%s']: APQN (%d,%d) not announced. Card generation = %s, but %s or higher required for this config set\n",
+					p.resource, a.Adapter, a.Domain, a.Gen, ccset.MinCexGen)
+				continue
+			}
+			apqns = append(apqns, a)
+		}
+	}
+
+	return apqns
+}
+
+func (p *ZMdevResPlugin) makePluginDevsFromAPQNs() []*kdp.Device {
+
+	var devices []*kdp.Device
+
+	if p.ccset.Overcommit <= 0 {
+		p.ccset.Overcommit = apqnOverCommitLimit
+		log.Printf("MDEV Plugin['%s']: Overcommit not specified in ConfigSet, fallback to %d \n",
+			p.resource, apqnOverCommitLimit)
+	}
+
+	for _, a := range p.apqns {
+		health := kdp.Healthy
+		if !a.Online {
+			health = kdp.Unhealthy
+		}
+		for i := 0; i < p.ccset.Overcommit; i++ {
+			devices = append(devices, &kdp.Device{
+				ID:     fmt.Sprintf(ApqnFmtStr, a.Adapter, a.Domain, i),
+				Health: health,
+			})
+		}
+	}
+
+	return devices
+}
+
+func (p *ZMdevResPlugin) checkChanged() bool {
+
+	//log.Printf("MDEV Plugin['%s']: checkChanged() rescanning available APQNs\n", p.resource)
+
+	var apqnsChanged, configChanged bool
+	ccset, tag := GetCurrentCryptoConfigSet(p.ccset, p.resource, p.tag)
+
+	allnodeapqns, err := apScanAPQNs(false)
+	if err != nil {
+		log.Printf("MDEV Plugin['%s']: failure trying to rescan node APQNs: %s\n", p.resource, err)
+		return false
+	}
+
+	// check for change in APQNs
+	apqns := p.filterAPQNs(ccset, allnodeapqns)
+	if !apEqualAPQNLists(apqns, p.apqns) {
+		log.Printf("MDEV Plugin['%s']: Rescan found %d eligible APQNs (with changes): %s\n",
+			p.resource, len(apqns), apqns)
+		apqnsChanged = true
+	}
+
+	// check for change in ConfigSet (currently only overcommit limit)
+	if ccset != nil && ccset.Overcommit != p.ccset.Overcommit {
+		log.Printf("MDEV Plugin['%s']: Rescan found changes in ConfigSet: overcommit limit has changed\n",
+			p.resource)
+		configChanged = true
+	}
+
+	if apqnsChanged || configChanged {
+		p.ccset, p.tag = ccset, tag
+		p.apqns = apqns
+		p.devices = p.makePluginDevsFromAPQNs()
+		log.Printf("MDEV Plugin['%s']: Derived %d plugin devices from the list of APQNs\n",
+			p.resource, len(p.devices))
+		return true
+	} else {
+		log.Printf("MDEV Plugin['%s']: no changes\n", p.resource)
+		return false
+	}
+}
+
+func (p *ZMdevResPlugin) checkChangedLoop() {
+
+	tick := time.NewTicker(apqnsCheckInterval * time.Second)
+
+ForLoop:
+	for {
+		select {
+		case <-p.stopChan:
+			tick.Stop()
+			break ForLoop
+		case <-tick.C:
+			if p.checkChanged() {
+				p.changedChan <- struct{}{}
+			}
+		}
+	}
 }
 
 // Implement required methods for ZMdevResPlugin (similar to ZCryptoResPlugin)
 func (p *ZMdevResPlugin) Start() error {
 	log.Printf("ZMdevResPlugin['%s']: Start()\n", p.resource)
 
+	allnodeapqns, err := apScanAPQNs(false)
+	if err != nil {
+		log.Printf("MDEV Plugin['%s']: failure trying to scan node APQNs: %s\n", p.resource, err)
+		return fmt.Errorf("MDEV Plugin['%s']: fatal failure at start", p.resource)
+	}
+
+	p.apqns = p.filterAPQNs(p.ccset, allnodeapqns)
+	log.Printf("MDEV Plugin['%s']: Found %d eligible APQNs: %s\n", p.resource, len(p.apqns), p.apqns)
+
+	p.devices = p.makePluginDevsFromAPQNs()
+	log.Printf("MDEV Plugin['%s']: Derived %d plugin devices from the list of APQNs\n",
+		p.resource, len(p.devices))
+
 	// Mock device setup or other initialization logic
 	p.stopChan = make(chan struct{})
 	p.changedChan = make(chan struct{})
-	p.initDevices()
+
+	go p.checkChangedLoop()
+
 	return nil
 }
 
@@ -172,18 +302,19 @@ func (p *ZMdevResPlugin) Allocate(ctx context.Context, req *kdp.AllocateRequest)
 			var card, queue, overcount int
 			n, err := fmt.Sscanf(id, ApqnFmtStr, &card, &queue, &overcount)
 			if err != nil || n < 3 {
-				log.Printf("Plugin['%s']: Error parsing device id '%s'\n", p.resource, id)
+				log.Printf("MDEV Plugin['%s']: Error parsing device id '%s'\n", p.resource, id)
 				return nil, fmt.Errorf("Error parsing device id '%s'", id)
 			}
 			znode := fmt.Sprintf("zcrypt-"+ApqnFmtStr, card, queue, overcount)
-			log.Printf("Plugin['%s']: creating zcrypt device node '%s'\n", p.resource, znode)
+			log.Printf("MDEV Plugin['%s']: creating zcrypt device node '%s'\n", p.resource, znode)
 			// Create a mediated device
 			apqn := fmt.Sprintf("%02x.%04x", card, queue)
 			mdev_path, err := zcryptCreateMDevNode(apqn)
 			if err != nil {
-				log.Printf("Plugin['%s']: Error creating zcrypt node '%s': %s\n", p.resource, znode, err)
+				log.Printf("MDEV Plugin['%s']: Error creating zcrypt node '%s': %s\n", p.resource, znode, err)
 				return nil, fmt.Errorf("Error creating zcrypt node '%s'", znode)
 			}
+			log.Printf("MDEV Plugin['%s']: creating mediated device node '%s'\n", p.resource, mdev_path)
 			// mdev_path should look like "/dev/vfio/0"
 			dev := &kdp.DeviceSpec{
 				HostPath:      mdev_path,
@@ -194,12 +325,12 @@ func (p *ZMdevResPlugin) Allocate(ctx context.Context, req *kdp.AllocateRequest)
 		}
 		rsp.ContainerResponses = append(rsp.ContainerResponses, &carsp)
 	}
-	log.Printf("Plugin['%s']: Allocate() response=%v\n", p.resource, rsp)
+	log.Printf("MDEV Plugin['%s']: Allocate() response=%v\n", p.resource, rsp)
 	return rsp, nil
 }
 
 func (m *ZMdevDPMLister) GetResourceNamespace() string {
-	log.Printf("Plugin: Announcing 'mdev.s390.ibm.com' as our resource namespace for ZMdev\n")
+	log.Printf("MDEV Plugin: Announcing 'mdev.s390.ibm.com' as our resource namespace for ZMdev\n")
 	return "mdev.s390.ibm.com"
 }
 
@@ -228,32 +359,61 @@ func createMockDevice(setname string) error {
 }
 
 func (z *ZMdevDPMLister) Discover(nameslistchan chan dpm.PluginNameList) {
-	// Define a static list of set names
-	staticSetNames := []string{"CCA_for_customer_1", "EP11_for_customer_1"}
-	sort.Strings(staticSetNames) // Ensure the list is sorted
-	z.setnameslist = staticSetNames
 
-	// Mock a device for each static set name
-	for _, setname := range staticSetNames {
-		err := createMockDevice(setname)
-		if err != nil {
-			log.Printf("Failed to create mock device for setname '%s': %v", setname, err)
-			continue
+	areTheseSortedStringListsEqual := func(l1, l2 []string) bool {
+		if len(l1) != len(l2) {
+			return false
 		}
+		for i, _ := range l1 {
+			if l1[i] != l2[i] {
+				return false
+			}
+		}
+		return true
 	}
 
-	// Announce the static set names as resources
-	log.Printf("Plugin: Registering resources for these static set names: %v\n", z.setnameslist)
+	// prepare and announce the initial list of crypto config setnames
+	sets := GetCurrentCryptoConfig().GetListOfSetNames()
+	sort.Strings(sets)
+	z.setnameslist = sets
+	log.Printf("MDEV Plugin: Register plugins for these CryptoConfigSets: %v\n", z.setnameslist)
 	nameslistchan <- dpm.PluginNameList(z.setnameslist)
+
+	// every Cccheckinterval seconds check if the list of setnames has changed
+	tick := time.NewTicker(Cccheckinterval * time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case <-nameslistchan:
+			return
+		case t := <-tick.C:
+			if t.IsZero() {
+				return
+			}
+			sets = GetCurrentCryptoConfig().GetListOfSetNames()
+			sort.Strings(sets)
+			if !areTheseSortedStringListsEqual(sets, z.setnameslist) {
+				z.setnameslist = sets
+				log.Printf("MDEV Plugin: Found crypto config set changes. Reannouncing: %v\n", z.setnameslist)
+				nameslistchan <- dpm.PluginNameList(z.setnameslist)
+			} else if len(z.setnameslist) == 0 {
+				log.Printf("MDEV Plugin: No crypto config sets available, check configuration !\n")
+			}
+		}
+	}
 }
 
 func (m *ZMdevDPMLister) NewPlugin(resource string) dpm.PluginInterface {
 	log.Printf("ZMdevDPMLister: NewPlugin('%s')\n", resource)
 
+	ccset, tag := GetCurrentCryptoConfigSet(nil, resource, nil)
+
 	// Create a new instance of the resource plugin
 	return &ZMdevResPlugin{
-		resource: resource,
 		lister:   m,
+		resource: resource,
+		ccset:    ccset,
+		tag:      tag,
 	}
 }
 
@@ -267,7 +427,7 @@ func (p *ZMdevResPlugin) GetDevicePluginOptions(ctx context.Context, req *kdp.Em
 }
 
 func (p *ZMdevResPlugin) ListAndWatch(e *kdp.Empty, s kdp.DevicePlugin_ListAndWatchServer) error {
-	log.Printf("Plugin['%s']: ListAndWatch() Announcing %d devices: %s\n",
+	log.Printf("MDEV Plugin['%s']: ListAndWatch() Announcing %d devices: %s\n",
 		p.resource, len(p.devices), p.devices)
 	s.Send(&kdp.ListAndWatchResponse{Devices: p.devices})
 
@@ -279,7 +439,7 @@ func (p *ZMdevResPlugin) ListAndWatch(e *kdp.Empty, s kdp.DevicePlugin_ListAndWa
 			if !ok {
 				return nil
 			}
-			log.Printf("Plugin['%s']: ListAndWatch() Re-announcing %d devices: %s\n",
+			log.Printf("MDEV Plugin['%s']: ListAndWatch() Re-announcing %d devices: %s\n",
 				p.resource, len(p.devices), p.devices)
 			s.Send(&kdp.ListAndWatchResponse{Devices: p.devices})
 		}
@@ -289,14 +449,14 @@ func (p *ZMdevResPlugin) ListAndWatch(e *kdp.Empty, s kdp.DevicePlugin_ListAndWa
 func (p *ZMdevResPlugin) GetPreferredAllocation(ctx context.Context,
 	req *kdp.PreferredAllocationRequest) (*kdp.PreferredAllocationResponse, error) {
 
-	//log.Printf("Plugin['%s']: GetPreferredAllocation()\n", p.resource)
+	//log.Printf("MDEV Plugin['%s']: GetPreferredAllocation()\n", p.resource)
 
 	return nil, nil
 }
 
 func (p *ZMdevResPlugin) PreStartContainer(context.Context, *kdp.PreStartContainerRequest) (*kdp.PreStartContainerResponse, error) {
 
-	//log.Printf("Plugin['%s']: PreStartContainer()\n", p.resource)
+	//log.Printf("MDEV Plugin['%s']: PreStartContainer()\n", p.resource)
 	return nil, fmt.Errorf("PreStartContainer() not implemented")
 }
 
@@ -304,7 +464,7 @@ func RunZMdevResPlugins() {
 
 	machineid, err := ccGetMachineId()
 	if err != nil {
-		log.Fatalf("Plugin: Fetching machine id failed: %s\n", err)
+		log.Fatalf("MDEV Plugin: Fetching machine id failed: %s\n", err)
 	}
 
 	zmdevLister := &ZMdevDPMLister{
