@@ -102,7 +102,10 @@ func main() {
 	}
 
 	// enter the crypto resources plugins loop
-	RunZCryptoResPlugins()
+	go RunZCryptoResPlugins()
+	go RunZMdevResPlugins()
+
+	select {}
 
 	// stop metrics collector
 	mc.Stop()

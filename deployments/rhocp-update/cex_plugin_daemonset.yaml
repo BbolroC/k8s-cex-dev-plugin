@@ -50,11 +50,16 @@ spec:
             mountPath: /dev
           - name: sys
             mountPath: /sys
+          - name: tmp-volume
+            mountPath: /tmp
           - name: cex-resources-conf
             # the cex_resources.json file is showing up in this dir
             mountPath: /config/
       volumes:
         # device-plugin gRPC needs this
+        - name: tmp-volume
+          hostPath:
+            path: /tmp
         - name: device-plugin
           hostPath:
             path: /var/lib/kubelet/device-plugins

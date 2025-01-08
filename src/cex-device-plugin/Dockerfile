@@ -31,7 +31,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy the code into the build dir
-COPY ap.go cryptoconfigs.go main.go plugin.go podlister.go \
+COPY ap.go cryptoconfigs.go main.go plugin.go mdev-plugin.go podlister.go \
      shadowsysfs.go zcrypt.go metricscollector.go ./
 
 # Build the application

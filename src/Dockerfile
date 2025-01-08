@@ -35,7 +35,7 @@ RUN go mod download
 
 # Copy the code into the build dir
 COPY cex-device-plugin/ap.go cex-device-plugin/cryptoconfigs.go \
-     cex-device-plugin/main.go cex-device-plugin/plugin.go \
+     cex-device-plugin/main.go cex-device-plugin/plugin.go cex-device-plugin/mdev-plugin.go \
      cex-device-plugin/podlister.go cex-device-plugin/shadowsysfs.go \
      cex-device-plugin/zcrypt.go cex-device-plugin/metricscollector.go ./
 
