@@ -3,6 +3,7 @@ module cex-plugin
 go 1.21
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/kubevirt/device-plugin-manager v1.19.4
 	google.golang.org/grpc v1.64.0
 	k8s.io/apimachinery v0.27.1

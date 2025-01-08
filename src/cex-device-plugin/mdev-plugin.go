@@ -24,10 +24,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"sort"
 
+	"github.com/google/uuid"
 	"github.com/kubevirt/device-plugin-manager/pkg/dpm"
 	kdp "k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
 )
@@ -75,6 +79,89 @@ func (p *ZMdevResPlugin) Stop() error {
 	return nil
 }
 
+func zcryptCreateMDevNode(apqn string) (string, error) {
+	const (
+		devBase        = "/dev/vfio"
+		sysBusBase     = "/sys/bus/ap"
+		sysDeviceBase  = "/sys/devices/vfio_ap/matrix"
+		commandFile    = "mdev_supported_types/vfio_ap-passthrough/create"
+	)
+
+	// Validate APQN format
+	if !strings.Contains(apqn, ".") || len(apqn) < 7 {
+		return "", fmt.Errorf("incorrect format for APQN: %s", apqn)
+	}
+
+	// Extract APID and APQI
+	parts := strings.Split(apqn, ".")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("incorrect format for APQN: %s", apqn)
+	}
+
+	apid := strings.TrimLeft(parts[0], "0")
+	if apid == "" {
+		apid = "0"
+	}
+	apqi := strings.TrimLeft(parts[1], "0")
+	if apqi == "" {
+		apqi = "0"
+	}
+
+	// Release the device from the host
+	if err := writeToFile(filepath.Join(sysBusBase, "apmask"), fmt.Sprintf("-0x%s", apid)); err != nil {
+		return "", fmt.Errorf("failed to update apmask: %w", err)
+	}
+	if err := writeToFile(filepath.Join(sysBusBase, "aqmask"), fmt.Sprintf("-0x%s", apqi)); err != nil {
+		return "", fmt.Errorf("failed to update aqmask: %w", err)
+	}
+
+	// Create a mediated device (mdev)
+	commandPath := filepath.Join(sysDeviceBase, commandFile)
+	if _, err := os.Stat(commandPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("command file not found: %s", commandPath)
+	}
+
+	mdevUUID := uuid.New().String()
+	if err := writeToFile(commandPath, mdevUUID); err != nil {
+		return "", fmt.Errorf("failed to create mediated device: %w", err)
+	}
+
+	// Verify the mediated device
+	mdevPath := filepath.Join(sysDeviceBase, mdevUUID)
+	if _, err := os.Stat(filepath.Join(mdevPath, "iommu_group")); os.IsNotExist(err) {
+		return "", fmt.Errorf("iommu_group not found for mdev: %s", mdevUUID)
+	}
+
+	devIndex, err := readLink(filepath.Join(mdevPath, "iommu_group"))
+	if err != nil || devIndex == "" {
+		return "", fmt.Errorf("failed to get dev_index for mdev: %s", mdevUUID)
+	}
+
+	// Assign adapter and domain
+	if err := writeToFile(filepath.Join(mdevPath, "assign_adapter"), fmt.Sprintf("0x%s", apid)); err != nil {
+		return "", fmt.Errorf("failed to assign adapter: %w", err)
+	}
+	if err := writeToFile(filepath.Join(mdevPath, "assign_domain"), fmt.Sprintf("0x%s", apqi)); err != nil {
+		return "", fmt.Errorf("failed to assign domain: %w", err)
+	}
+
+	return fmt.Sprintf("%s/%s", devBase, devIndex), nil
+}
+
+// Utility functions
+
+func writeToFile(path, content string) error {
+	return ioutil.WriteFile(path, []byte(content), 0644)
+}
+
+func readLink(path string) (string, error) {
+	link, err := os.Readlink(path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Base(link), nil
+}
+
 func (p *ZMdevResPlugin) Allocate(ctx context.Context, req *kdp.AllocateRequest) (*kdp.AllocateResponse, error) {
 	log.Printf("ZMdevResPlugin['%s']: Allocate(request=%v)\n", p.resource, req)
 
@@ -82,16 +169,32 @@ func (p *ZMdevResPlugin) Allocate(ctx context.Context, req *kdp.AllocateRequest)
 	for _, careq := range req.GetContainerRequests() {
 		carsp := kdp.ContainerAllocateResponse{}
 		for _, id := range careq.GetDevicesIDs() {
-			// Create mock device
+			var card, queue, overcount int
+			n, err := fmt.Sscanf(id, ApqnFmtStr, &card, &queue, &overcount)
+			if err != nil || n < 3 {
+				log.Printf("Plugin['%s']: Error parsing device id '%s'\n", p.resource, id)
+				return nil, fmt.Errorf("Error parsing device id '%s'", id)
+			}
+			znode := fmt.Sprintf("zcrypt-"+ApqnFmtStr, card, queue, overcount)
+			log.Printf("Plugin['%s']: creating zcrypt device node '%s'\n", p.resource, znode)
+			// Create a mediated device
+			apqn := fmt.Sprintf("%02x.%04x", card, queue)
+			mdev_path, err := zcryptCreateMDevNode(apqn)
+			if err != nil {
+				log.Printf("Plugin['%s']: Error creating zcrypt node '%s': %s\n", p.resource, znode, err)
+				return nil, fmt.Errorf("Error creating zcrypt node '%s'", znode)
+			}
+			// mdev_path should look like "/dev/vfio/0"
 			dev := &kdp.DeviceSpec{
-				HostPath:      fmt.Sprintf("/tmp/mock-%s", id),
-				ContainerPath: fmt.Sprintf("/dev/%s", id),
+				HostPath:      mdev_path,
+				ContainerPath: mdev_path,
 				Permissions:   "rw",
 			}
 			carsp.Devices = append(carsp.Devices, dev)
 		}
 		rsp.ContainerResponses = append(rsp.ContainerResponses, &carsp)
 	}
+	log.Printf("Plugin['%s']: Allocate() response=%v\n", p.resource, rsp)
 	return rsp, nil
 }
 
