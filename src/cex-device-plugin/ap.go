@@ -250,6 +250,10 @@ func apEqualAPQNLists(l1, l2 APQNList) bool {
 func apGetQueueRequestCounter(ap, dom int) (int, error) {
 
 	sysfsqueuedir := fmt.Sprintf("%s/card%02x/%02x.%04x", apsysfsdevsdir, ap, ap, dom)
+	if _, err := os.Stat(sysfsqueuedir + "/online"); err != nil {
+		log.Printf("Ap: no request_count for %02x.%04x\n", ap, dom)
+		return 0, nil
+	}
 	rcountstr, err := apReadFirstLineFromFile(sysfsqueuedir + "/request_count")
 	if err != nil {
 		log.Printf("Ap: Error reading 'request_count' file from queue %02x.%04x: %s\n", ap, dom, err)
