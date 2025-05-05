@@ -22,7 +22,7 @@ spec:
         mountPath: "/tmp/cache"
     resources:
       limits:
-        cex.s390.ibm.com/CCA_for_customer_1: 1
+        cex.s390.ibm.com/EP11_for_customer_1: 1
   volumes:
   - name: host-empty-vol
     emptyDir: {}
