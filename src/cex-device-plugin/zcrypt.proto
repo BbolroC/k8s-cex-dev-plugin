@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package zcrypt;
+
+// Option for Go code generation path
+option go_package = "./zcryptpb"; // Adjust the path as needed
+
+// The service definition.
+service ZCryptManager {
+  // RPC method to create the simple device node
+  rpc CreateSimpleNode (CreateSimpleNodeRequest) returns (CreateSimpleNodeResponse) {}
+}
+
+// The request message containing necessary info for node creation.
+// Adapt this based on what zcryptCreateSimpleNode actually needs.
+// It likely needs the device path or some identifier.
+message CreateSimpleNodeRequest {
+  string nodename = 1;       // An identifier for the specific zcrypt device
+  int32 adapter = 2; // Maybe the path inside the container (ctrpath from Allocate?)
+  int32 domain = 3; // Maybe the original host path (devpath from Allocate?)
+  // Add any other parameters zcryptCreateSimpleNode requires
+}
+
+// The response message indicating success/failure and potentially the created path.
+message CreateSimpleNodeResponse {
+  bool success = 1;
+  string node_path = 2;     // The path of the created node, if applicable
+  string error_message = 3; // Detailed error message if success is false
+}

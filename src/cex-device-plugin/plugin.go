@@ -29,8 +29,11 @@ import (
 	"sort"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"github.com/kubevirt/device-plugin-manager/pkg/dpm"
 	kdp "k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
+	pb "cex-plugin/zcryptpb"
 )
 
 const (
@@ -57,6 +60,31 @@ type ZCryptoResPlugin struct {
 	devices     []*kdp.Device
 	changedChan chan struct{}
 	stopChan    chan struct{}
+
+	// grpc
+	grpcClient  pb.ZCryptManagerClient
+	grpcConn    *grpc.ClientConn
+}
+
+func (p *ZCryptoResPlugin) initGrpcClient(ctx context.Context, address string) error {
+	connTimeout := 5 * time.Second
+	connCtx, cancel := context.WithTimeout(ctx, connTimeout)
+	defer cancel()
+
+	conn, err := grpc.DialContext(
+		connCtx,
+		address,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to connect to gRPC server at %s: %w", address, err)
+	}
+
+	p.grpcConn = conn
+	p.grpcClient = pb.NewZCryptManagerClient(conn)
+	log.Printf("gRPC connection established to %s", address)
+	return nil
 }
 
 func (l *ZCryptoDPMLister) GetResourceNamespace() string {
@@ -243,6 +271,10 @@ func (p *ZCryptoResPlugin) Start() error {
 
 	log.Printf("Plugin['%s']: Start()\n", p.resource)
 
+	// Initialize gRPC client
+	if err := p.initGrpcClient(context.Background(), "localhost:50051"); err != nil {
+		return fmt.Errorf("failed to start plugin: %w", err)
+	}
 	allnodeapqns, err := apScanAPQNs(false)
 	if err != nil {
 		log.Printf("Plugin['%s']: failure trying to scan node APQNs: %s\n", p.resource, err)
@@ -269,6 +301,11 @@ func (p *ZCryptoResPlugin) Start() error {
 func (p *ZCryptoResPlugin) Stop() error {
 
 	log.Printf("Plugin['%s']: Stop()\n", p.resource)
+
+	if p.grpcConn != nil {
+		log.Println("Closing gRPC connection to zcrypt server...")
+		p.grpcConn.Close()
+	}
 
 	close(p.stopChan)
 	close(p.changedChan)
@@ -316,6 +353,8 @@ func (p *ZCryptoResPlugin) Allocate(ctx context.Context, req *kdp.AllocateReques
 
 	log.Printf("Plugin['%s']: Allocate(request=%v)\n", p.resource, req)
 
+	grpcClient := p.grpcClient
+
 	rsp := new(kdp.AllocateResponse)
 	for _, careq := range req.GetContainerRequests() {
 		runtimeClass := os.Getenv("RUNTIME_CLASS")
@@ -339,11 +378,24 @@ func (p *ZCryptoResPlugin) Allocate(ctx context.Context, req *kdp.AllocateReques
 			znode := fmt.Sprintf("zcrypt-"+ApqnFmtStr, card, queue, overcount)
 			if !zcryptNodeExists(znode) {
 				log.Printf("Plugin['%s']: creating zcrypt device node '%s'\n", p.resource, znode)
-				err = zcryptCreateSimpleNode(znode, card, queue)
+				grpcReq := &pb.CreateSimpleNodeRequest {
+					Nodename: znode,
+					Adapter: int32(card),
+					Domain: int32(queue),
+				}
+				callTimeout := 10 * time.Second
+				rpcCtx, rpcCancel := context.WithTimeout(ctx, callTimeout)
+				defer rpcCancel()
+				log.Printf("Calling CreateSimpleNode gRPC for Device ID: %s", id)
+				grpcResp, err := grpcClient.CreateSimpleNode(rpcCtx, grpcReq)
 				if err != nil {
 					log.Printf("Plugin['%s']: Error creating zcrypt node '%s': %s\n", p.resource, znode, err)
-					defer zcryptDestroyNode(znode)
+					//defer zcryptDestroyNode(znode)
 					return nil, fmt.Errorf("Error creating zcrypt node '%s'", znode)
+				}
+				if !grpcResp.Success {
+					log.Printf("gRPC server failed to create node for zcrypt node %s: %s", znode, grpcResp.ErrorMessage)
+					return nil, fmt.Errorf("allocate: node creation failed for zcrypt node %s: %s", znode, grpcResp.ErrorMessage)
 				}
 			} else {
 				//fmt.Printf("debug Plugin['%s']: zcrypt device node '%s' already exists\n", p.resource, znode)

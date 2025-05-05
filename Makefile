@@ -65,6 +65,11 @@ build-cex-device-plugin-image:
 	    --build-arg RELEASE=$(RELEASE) --build-arg GIT_URL=$(GIT_URL) \
 	    --build-arg GIT_COMMIT=$(GIT_COMMIT) --build-arg LABELNAME=$(LABELNAME) .
 
+.PHONY: build-grpc-server-image
+build-grpc-server-image:
+	cd src && \
+	$(RUNTIME) build -f grpc-server/Dockerfile -t localhost:5000/grpc-server:0.0.2 .
+
 .PHONY: buildah-cex-device-plugin-image
 buildah-cex-device-plugin-image:
 	cd src/cex-device-plugin && \

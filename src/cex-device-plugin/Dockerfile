@@ -34,6 +34,8 @@ RUN go mod download
 COPY ap.go cryptoconfigs.go main.go plugin.go mdev-plugin.go podlister.go \
      shadowsysfs.go zcrypt.go metricscollector.go ./
 
+COPY ./zcryptpb ./zcryptpb
+
 # Build the application
 RUN CGO_ENABLED=0 GO111MODULE=on go build -v -o cex-plugin \
     -ldflags="-X 'main.version=${VERSION}' -X 'main.git_url=${GIT_URL}' \
