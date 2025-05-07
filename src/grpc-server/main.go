@@ -75,6 +75,20 @@ func (s *server) FetchActiveNodes(ctx context.Context, req *pb.FetchActiveNodesR
 	}, nil
 }
 
+func (s *server) DestroyNode(ctx context.Context, req *pb.DestroyNodeRequest) (*pb.DestroyNodeResponse, error) {
+	err := zcryptDestroyNode(req.Nodename)
+	if err != nil {
+		return &pb.DestroyNodeResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	return &pb.DestroyNodeResponse{
+		Success: true,
+	}, nil
+}
+
 func main() {
 	log.Printf("Starting zcrypt gRPC server on port %s", grpcPort)
 	lis, err := net.Listen("tcp", grpcPort)

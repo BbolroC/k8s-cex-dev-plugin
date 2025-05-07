@@ -28,6 +28,8 @@ type ZCryptManagerClient interface {
 	CreateMdevNode(ctx context.Context, in *CreateMdevNodeRequest, opts ...grpc.CallOption) (*CreateMdevNodeResponse, error)
 	// RPC method to fetch active zcrypt nodes
 	FetchActiveNodes(ctx context.Context, in *FetchActiveNodesRequest, opts ...grpc.CallOption) (*FetchActiveNodesResponse, error)
+	// RPC method to destroy a zcrypt node
+	DestroyNode(ctx context.Context, in *DestroyNodeRequest, opts ...grpc.CallOption) (*DestroyNodeResponse, error)
 }
 
 type zCryptManagerClient struct {
@@ -65,6 +67,15 @@ func (c *zCryptManagerClient) FetchActiveNodes(ctx context.Context, in *FetchAct
 	return out, nil
 }
 
+func (c *zCryptManagerClient) DestroyNode(ctx context.Context, in *DestroyNodeRequest, opts ...grpc.CallOption) (*DestroyNodeResponse, error) {
+	out := new(DestroyNodeResponse)
+	err := c.cc.Invoke(ctx, "/zcrypt.ZCryptManager/DestroyNode", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ZCryptManagerServer is the server API for ZCryptManager service.
 // All implementations must embed UnimplementedZCryptManagerServer
 // for forward compatibility
@@ -75,6 +86,8 @@ type ZCryptManagerServer interface {
 	CreateMdevNode(context.Context, *CreateMdevNodeRequest) (*CreateMdevNodeResponse, error)
 	// RPC method to fetch active zcrypt nodes
 	FetchActiveNodes(context.Context, *FetchActiveNodesRequest) (*FetchActiveNodesResponse, error)
+	// RPC method to destroy a zcrypt node
+	DestroyNode(context.Context, *DestroyNodeRequest) (*DestroyNodeResponse, error)
 	mustEmbedUnimplementedZCryptManagerServer()
 }
 
@@ -90,6 +103,9 @@ func (UnimplementedZCryptManagerServer) CreateMdevNode(context.Context, *CreateM
 }
 func (UnimplementedZCryptManagerServer) FetchActiveNodes(context.Context, *FetchActiveNodesRequest) (*FetchActiveNodesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FetchActiveNodes not implemented")
+}
+func (UnimplementedZCryptManagerServer) DestroyNode(context.Context, *DestroyNodeRequest) (*DestroyNodeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DestroyNode not implemented")
 }
 func (UnimplementedZCryptManagerServer) mustEmbedUnimplementedZCryptManagerServer() {}
 
@@ -158,6 +174,24 @@ func _ZCryptManager_FetchActiveNodes_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ZCryptManager_DestroyNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DestroyNodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ZCryptManagerServer).DestroyNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/zcrypt.ZCryptManager/DestroyNode",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ZCryptManagerServer).DestroyNode(ctx, req.(*DestroyNodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ZCryptManager_ServiceDesc is the grpc.ServiceDesc for ZCryptManager service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -176,6 +210,10 @@ var ZCryptManager_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FetchActiveNodes",
 			Handler:    _ZCryptManager_FetchActiveNodes_Handler,
+		},
+		{
+			MethodName: "DestroyNode",
+			Handler:    _ZCryptManager_DestroyNode_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

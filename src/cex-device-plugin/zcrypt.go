@@ -54,20 +54,3 @@ func zcryptNodeExists(nodename string) bool {
 	}
 	return true
 }
-
-func zcryptDestroyNode(nodename string) error {
-	// destroy the zcrypt device node via writing to /sys/class/zcrypt/destroy
-	destroyfname := zcryptclassdir + "/" + "destroy"
-	f, err := os.OpenFile(destroyfname, os.O_WRONLY, 0)
-	if err != nil {
-		log.Printf("Zcrypt: Can't open file '%s': %s\n", destroyfname, err)
-		return err
-	}
-	defer f.Close()
-	_, err = f.WriteString(nodename)
-	if err != nil {
-		log.Printf("Zcrypt: Error writing to '%s': %s\n", destroyfname, err)
-		return err
-	}
-	return nil
-}

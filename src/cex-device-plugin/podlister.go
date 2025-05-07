@@ -320,7 +320,27 @@ func (pl *PodLister) doLoop() error {
 				log.Printf("PodLister: deleting zcrypt node '%s': no container ever used it since %d s\n",
 					zk, DeleteResourceTimeoutIfUnused)
 				pl.tellMetricsCollAboutDestroyNode(zk)
-				zcryptDestroyNode(zk)
+
+				// Use gRPC to destroy the node
+				callTimeout := 10 * time.Second
+				rpcCtx, rpcCancel := context.WithTimeout(context.Background(), callTimeout)
+				defer rpcCancel()
+				log.Printf("Calling DestroyNode gRPC for Device ID: %s", zk)
+
+				resp, err := ExecuteGrpcCall(rpcCtx, func(client pb.ZCryptManagerClient) (*pb.DestroyNodeResponse, error) {
+					return client.DestroyNode(rpcCtx, &pb.DestroyNodeRequest{
+						Nodename: zk,
+					})
+				})
+				if err != nil {
+					log.Printf("PodLister: Failed to destroy node '%s' via gRPC: %v\n", zk, err)
+					continue
+				}
+				if !resp.Success {
+					log.Printf("PodLister: Failed to destroy node '%s': %s\n", zk, resp.ErrorMessage)
+					continue
+				}
+
 				delete(zcryptnodemap, zk)
 			}
 		} else {
@@ -330,7 +350,27 @@ func (pl *PodLister) doLoop() error {
 				log.Printf("PodLister: deleting zcrypt node '%s': no container use since %d s\n",
 					zk, DeleteResourceTimeoutAfterUse)
 				pl.tellMetricsCollAboutDestroyNode(zk)
-				zcryptDestroyNode(zk)
+
+				// Use gRPC to destroy the node
+				callTimeout := 10 * time.Second
+				rpcCtx, rpcCancel := context.WithTimeout(context.Background(), callTimeout)
+				defer rpcCancel()
+				log.Printf("Calling DestroyNode gRPC for Device ID: %s", zk)
+
+				resp, err := ExecuteGrpcCall(rpcCtx, func(client pb.ZCryptManagerClient) (*pb.DestroyNodeResponse, error) {
+					return client.DestroyNode(rpcCtx, &pb.DestroyNodeRequest{
+						Nodename: zk,
+					})
+				})
+				if err != nil {
+					log.Printf("PodLister: Failed to destroy node '%s' via gRPC: %v\n", zk, err)
+					continue
+				}
+				if !resp.Success {
+					log.Printf("PodLister: Failed to destroy node '%s': %s\n", zk, resp.ErrorMessage)
+					continue
+				}
+
 				delete(zcryptnodemap, zk)
 			}
 		}

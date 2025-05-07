@@ -371,7 +371,25 @@ func (p *ZCryptoResPlugin) Allocate(ctx context.Context, req *kdp.AllocateReques
 			apbusdir, apdevsdir, err := makeShadowApSysfs(id, card, queue)
 			if err != nil {
 				log.Printf("Plugin['%s']: Error creating shadow sysfs for device '%s': %s\n", p.resource, id, err)
-				defer zcryptDestroyNode(znode)
+				// Defer the gRPC call to destroy the node
+				defer func() {
+					grpcReq := &pb.DestroyNodeRequest{
+						Nodename: znode,
+					}
+					callTimeout := 10 * time.Second
+					rpcCtx, rpcCancel := context.WithTimeout(context.Background(), callTimeout)
+					defer rpcCancel()
+					log.Printf("Calling DestroyNode gRPC for Device ID: %s", id)
+
+					grpcResp, err := ExecuteGrpcCall(rpcCtx, func(client pb.ZCryptManagerClient) (*pb.DestroyNodeResponse, error) {
+						return client.DestroyNode(rpcCtx, grpcReq)
+					})
+					if err != nil {
+						log.Printf("Plugin['%s']: Error destroying zcrypt node '%s': %s\n", p.resource, znode, err)
+					} else if !grpcResp.Success {
+						log.Printf("gRPC server failed to destroy node for zcrypt node %s: %s", znode, grpcResp.ErrorMessage)
+					}
+				}()
 				return nil, fmt.Errorf("Error creating shadow sysfs for device '%s'", id)
 			}
 			carsp.Mounts = append(carsp.Mounts, &kdp.Mount{
