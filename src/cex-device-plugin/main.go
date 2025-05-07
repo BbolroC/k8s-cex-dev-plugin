@@ -22,6 +22,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -36,7 +37,6 @@ var (
 )
 
 func main() {
-
 	versionarg := flag.Bool("version", false, "Print version and exit")
 
 	// workaround for log: exiting because of error: log cannot create log: open ...
@@ -100,6 +100,12 @@ func main() {
 	if err = mc.Start(); err != nil {
 		log.Fatalf("Main: MetricsCollector Start failed: %s\n", err)
 	}
+
+	// Initialize gRPC client
+	if err := InitGrpcClient(context.Background(), "localhost:50051"); err != nil {
+		log.Fatalf("Main: Failed to initialize gRPC client: %s\n", err)
+	}
+	defer CloseGrpcConn()
 
 	// enter the crypto resources plugins loop
 	go RunZCryptoResPlugins()

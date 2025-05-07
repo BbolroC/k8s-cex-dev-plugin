@@ -28,8 +28,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -203,7 +203,6 @@ func (p *ZMdevResPlugin) Start() error {
 
 func (p *ZMdevResPlugin) Stop() error {
 	log.Printf("ZMdevResPlugin['%s']: Stop()\n", p.resource)
-
 	close(p.stopChan)
 	close(p.changedChan)
 	return nil

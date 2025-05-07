@@ -25,7 +25,7 @@ spec:
       # Container is not needed.
       containers:
       - name: cex-plugin
-        image: 'localhost:5000/ibm-cex-plugin-cm:v1.1.4'
+        image: 'localhost:5000/ibm-cex-plugin-cm:v1.1.5'
         imagePullPolicy: Always
         securityContext:
           privileged: true
