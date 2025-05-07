@@ -11,6 +11,8 @@ service ZCryptManager {
   rpc CreateSimpleNode (CreateSimpleNodeRequest) returns (CreateSimpleNodeResponse) {}
   // RPC method to create a mediated device node
   rpc CreateMdevNode (CreateMdevNodeRequest) returns (CreateMdevNodeResponse) {}
+  // RPC method to fetch active zcrypt nodes
+  rpc FetchActiveNodes (FetchActiveNodesRequest) returns (FetchActiveNodesResponse) {}
 }
 
 // The request message containing necessary info for node creation.
@@ -40,4 +42,15 @@ message CreateMdevNodeResponse {
   bool success = 1;
   string device_path = 2;  // The path of the created device node (e.g. /dev/vfio/N)
   string error_message = 3; // Error message if creation failed
+}
+
+// The request message for fetching active nodes
+message FetchActiveNodesRequest {
+  // Empty request as we just need to list all active nodes
+}
+
+// The response message containing active nodes
+message FetchActiveNodesResponse {
+  repeated string nodes = 1;  // List of active node names
+  string error_message = 2;   // Error message if the operation failed
 }

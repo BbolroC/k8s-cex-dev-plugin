@@ -24,13 +24,16 @@ package main
 import (
 	"context"
 	"fmt"
-	"google.golang.org/grpc"
 	"log"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc"
+
+	pb "cex-plugin/zcryptpb"
 
 	podresapi "k8s.io/kubelet/pkg/apis/podresources/v1"
 )
@@ -182,17 +185,21 @@ type sysfsshadow_s struct {
 var sysfsshadowmap = map[string]*sysfsshadow_s{}
 
 func (pl *PodLister) doLoop() error {
-
 	if pl.con == nil {
 		log.Printf("PodLister: No connection to kubelet\n")
 		return fmt.Errorf("PodLister: No connection to kubelet")
 	}
 
-	// update zcryptnodemap with maybe new active zcrypt nodes
-	zcryptnodes, err := zcryptFetchActiveNodes()
+	// update zcryptnodemap with maybe new active zcrypt nodes using gRPC
+	resp, err := ExecuteGrpcCall(context.Background(), func(client pb.ZCryptManagerClient) (*pb.FetchActiveNodesResponse, error) {
+		return client.FetchActiveNodes(context.Background(), &pb.FetchActiveNodesRequest{})
+	})
 	if err != nil {
-		return nil
+		log.Printf("PodLister: Failed to fetch active nodes via gRPC: %v\n", err)
+		return fmt.Errorf("PodLister: Failed to fetch active nodes via gRPC: %v", err)
 	}
+
+	zcryptnodes := resp.Nodes
 	log.Printf("PodLister: %d active zcrypt nodes\n", len(zcryptnodes))
 	for _, zn := range zcryptnodes {
 		_, found := zcryptnodemap[zn]
@@ -222,7 +229,7 @@ func (pl *PodLister) doLoop() error {
 
 	// fetch all currently active pods
 	req := podresapi.ListPodResourcesRequest{}
-	resp, err := pl.client.List(context.TODO(), &req)
+	pl_resp, err := pl.client.List(context.TODO(), &req)
 	if err != nil {
 		log.Printf("PodLister: List() on PodResourcesListerClient failed: %s\n", err)
 		return fmt.Errorf("PodLister: List() on PodResourcesListerClient failed: %s", err)
@@ -247,7 +254,7 @@ func (pl *PodLister) doLoop() error {
 
 	// go through all the active pods and examine the containers which have a device we manage in this plugin
 	conswithplugindevs := 0
-	for _, pod := range resp.PodResources {
+	for _, pod := range pl_resp.PodResources {
 		for _, c := range pod.Containers {
 			for _, d := range c.Devices {
 				if !strings.HasPrefix(d.ResourceName, baseResourceName+"/") {

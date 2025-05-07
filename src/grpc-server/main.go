@@ -17,12 +17,12 @@ const (
 )
 
 // server implements the ZCryptManagerServer interface
-type zcryptServer struct {
+type server struct {
 	pb.UnimplementedZCryptManagerServer // Embed for forward compatibility
 }
 
 // CreateSimpleNode is the RPC handler
-func (s *zcryptServer) CreateSimpleNode(ctx context.Context, req *pb.CreateSimpleNodeRequest) (*pb.CreateSimpleNodeResponse, error) {
+func (s *server) CreateSimpleNode(ctx context.Context, req *pb.CreateSimpleNodeRequest) (*pb.CreateSimpleNodeResponse, error) {
 	log.Printf("Received CreateSimpleNode request: DeviceID=%s, ContainerPath=%d, HostDevicePath=%d",
 		req.Nodename, req.Adapter, req.Domain)
 
@@ -43,7 +43,7 @@ func (s *zcryptServer) CreateSimpleNode(ctx context.Context, req *pb.CreateSimpl
 }
 
 // CreateMdevNode is the RPC handler for creating mediated devices
-func (s *zcryptServer) CreateMdevNode(ctx context.Context, req *pb.CreateMdevNodeRequest) (*pb.CreateMdevNodeResponse, error) {
+func (s *server) CreateMdevNode(ctx context.Context, req *pb.CreateMdevNodeRequest) (*pb.CreateMdevNodeResponse, error) {
 	log.Printf("Received CreateMdevNode request: APQN=%s", req.Apqn)
 
 	devicePath, err := zcryptCreateMDevNode(req.Apqn)
@@ -62,6 +62,19 @@ func (s *zcryptServer) CreateMdevNode(ctx context.Context, req *pb.CreateMdevNod
 	}, nil
 }
 
+func (s *server) FetchActiveNodes(ctx context.Context, req *pb.FetchActiveNodesRequest) (*pb.FetchActiveNodesResponse, error) {
+	nodes, err := zcryptFetchActiveNodes()
+	if err != nil {
+		return &pb.FetchActiveNodesResponse{
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	return &pb.FetchActiveNodesResponse{
+		Nodes: nodes,
+	}, nil
+}
+
 func main() {
 	log.Printf("Starting zcrypt gRPC server on port %s", grpcPort)
 	lis, err := net.Listen("tcp", grpcPort)
@@ -74,7 +87,7 @@ func main() {
 	)
 
 	// Register the implementation
-	pb.RegisterZCryptManagerServer(s, &zcryptServer{})
+	pb.RegisterZCryptManagerServer(s, &server{})
 
 	// Optional: Register reflection service on gRPC server.
 	reflection.Register(s)

@@ -22,11 +22,8 @@
 package main
 
 import (
-	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
-	"regexp"
 )
 
 const (
@@ -73,28 +70,4 @@ func zcryptDestroyNode(nodename string) error {
 		return err
 	}
 	return nil
-}
-
-func zcryptFetchActiveNodes() ([]string, error) {
-	var nodes []string
-
-	_, err := os.Stat(zcryptvdevdir)
-	if err != nil && os.IsNotExist(err) {
-		return nodes, nil
-	}
-
-	files, err := ioutil.ReadDir(zcryptvdevdir)
-	if err != nil {
-		log.Printf("Zcrypt: Can't read directory %s: %s\n", zcryptvdevdir, err)
-		return nil, fmt.Errorf("Zcrypt: Can't read directory %s: %s", zcryptvdevdir, err)
-	}
-
-	for _, f := range files {
-		match, _ := regexp.MatchString("zcrypt-apqn-.*", f.Name())
-		if match {
-			nodes = append(nodes, f.Name())
-		}
-	}
-
-	return nodes, nil
 }
