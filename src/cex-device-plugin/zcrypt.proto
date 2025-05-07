@@ -17,6 +17,8 @@ service ZCryptManager {
   rpc DestroyNode (DestroyNodeRequest) returns (DestroyNodeResponse) {}
   // RPC method to check if a node exists
   rpc NodeExists (NodeExistsRequest) returns (NodeExistsResponse) {}
+  // RPC method to check if zcrypt has nodes support
+  rpc HasNodesSupport (HasNodesSupportRequest) returns (HasNodesSupportResponse) {}
 }
 
 // The request message containing necessary info for node creation.
@@ -78,5 +80,16 @@ message NodeExistsRequest {
 // The response message indicating whether the node exists
 message NodeExistsResponse {
   bool exists = 1;
+  string error_message = 2;
+}
+
+// The request message for checking if zcrypt has nodes support
+message HasNodesSupportRequest {
+  // Empty request as we just need to check system support
+}
+
+// The response message indicating whether zcrypt has nodes support
+message HasNodesSupportResponse {
+  bool has_support = 1;
   string error_message = 2;
 }

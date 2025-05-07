@@ -96,6 +96,13 @@ func (s *server) NodeExists(ctx context.Context, req *pb.NodeExistsRequest) (*pb
 	}, nil
 }
 
+func (s *server) HasNodesSupport(ctx context.Context, req *pb.HasNodesSupportRequest) (*pb.HasNodesSupportResponse, error) {
+	hasSupport := zcryptHasNodesSupport()
+	return &pb.HasNodesSupportResponse{
+		HasSupport: hasSupport,
+	}, nil
+}
+
 func main() {
 	log.Printf("Starting zcrypt gRPC server on port %s", grpcPort)
 	lis, err := net.Listen("tcp", grpcPort)

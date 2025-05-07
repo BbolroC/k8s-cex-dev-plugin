@@ -26,6 +26,9 @@ import (
 	"flag"
 	"log"
 	"os"
+	"time"
+
+	pb "cex-plugin/zcryptpb"
 )
 
 var (
@@ -84,9 +87,26 @@ func main() {
 		log.Fatalf("Main: Crypto configuration verification failed.\n")
 	}
 
-	// check for zcrypt multiple node support or die
-	if !zcryptHasNodesSupport() {
-		log.Fatalf("Main: No zcrypt multiple node support available\n")
+	// check if zcrypt has multiple nodes support
+	callTimeout := 10 * time.Second
+	rpcCtx, rpcCancel := context.WithTimeout(context.Background(), callTimeout)
+	defer rpcCancel()
+
+	// Initialize gRPC client first
+	if err := InitGrpcClient(context.Background(), "localhost:50051"); err != nil {
+		log.Fatalf("Main: Failed to initialize gRPC client: %s\n", err)
+	}
+	defer CloseGrpcConn()
+
+	log.Printf("Main: Checking zcrypt nodes support via gRPC")
+	resp, err := ExecuteGrpcCall(rpcCtx, func(client pb.ZCryptManagerClient) (*pb.HasNodesSupportResponse, error) {
+		return client.HasNodesSupport(rpcCtx, &pb.HasNodesSupportRequest{})
+	})
+	if err != nil {
+		log.Fatalf("Failed to check zcrypt nodes support via gRPC: %v", err)
+	}
+	if !resp.HasSupport {
+		log.Fatalf("Zcrypt: No zcrypt multiple nodes support")
 	}
 
 	// start pod lister or die
@@ -100,12 +120,6 @@ func main() {
 	if err = mc.Start(); err != nil {
 		log.Fatalf("Main: MetricsCollector Start failed: %s\n", err)
 	}
-
-	// Initialize gRPC client
-	if err := InitGrpcClient(context.Background(), "localhost:50051"); err != nil {
-		log.Fatalf("Main: Failed to initialize gRPC client: %s\n", err)
-	}
-	defer CloseGrpcConn()
 
 	// enter the crypto resources plugins loop
 	go RunZCryptoResPlugins()

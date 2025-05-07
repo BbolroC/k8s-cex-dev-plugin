@@ -32,6 +32,8 @@ type ZCryptManagerClient interface {
 	DestroyNode(ctx context.Context, in *DestroyNodeRequest, opts ...grpc.CallOption) (*DestroyNodeResponse, error)
 	// RPC method to check if a node exists
 	NodeExists(ctx context.Context, in *NodeExistsRequest, opts ...grpc.CallOption) (*NodeExistsResponse, error)
+	// RPC method to check if zcrypt has nodes support
+	HasNodesSupport(ctx context.Context, in *HasNodesSupportRequest, opts ...grpc.CallOption) (*HasNodesSupportResponse, error)
 }
 
 type zCryptManagerClient struct {
@@ -87,6 +89,15 @@ func (c *zCryptManagerClient) NodeExists(ctx context.Context, in *NodeExistsRequ
 	return out, nil
 }
 
+func (c *zCryptManagerClient) HasNodesSupport(ctx context.Context, in *HasNodesSupportRequest, opts ...grpc.CallOption) (*HasNodesSupportResponse, error) {
+	out := new(HasNodesSupportResponse)
+	err := c.cc.Invoke(ctx, "/zcrypt.ZCryptManager/HasNodesSupport", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ZCryptManagerServer is the server API for ZCryptManager service.
 // All implementations must embed UnimplementedZCryptManagerServer
 // for forward compatibility
@@ -101,6 +112,8 @@ type ZCryptManagerServer interface {
 	DestroyNode(context.Context, *DestroyNodeRequest) (*DestroyNodeResponse, error)
 	// RPC method to check if a node exists
 	NodeExists(context.Context, *NodeExistsRequest) (*NodeExistsResponse, error)
+	// RPC method to check if zcrypt has nodes support
+	HasNodesSupport(context.Context, *HasNodesSupportRequest) (*HasNodesSupportResponse, error)
 	mustEmbedUnimplementedZCryptManagerServer()
 }
 
@@ -122,6 +135,9 @@ func (UnimplementedZCryptManagerServer) DestroyNode(context.Context, *DestroyNod
 }
 func (UnimplementedZCryptManagerServer) NodeExists(context.Context, *NodeExistsRequest) (*NodeExistsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NodeExists not implemented")
+}
+func (UnimplementedZCryptManagerServer) HasNodesSupport(context.Context, *HasNodesSupportRequest) (*HasNodesSupportResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HasNodesSupport not implemented")
 }
 func (UnimplementedZCryptManagerServer) mustEmbedUnimplementedZCryptManagerServer() {}
 
@@ -226,6 +242,24 @@ func _ZCryptManager_NodeExists_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ZCryptManager_HasNodesSupport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HasNodesSupportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ZCryptManagerServer).HasNodesSupport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/zcrypt.ZCryptManager/HasNodesSupport",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ZCryptManagerServer).HasNodesSupport(ctx, req.(*HasNodesSupportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ZCryptManager_ServiceDesc is the grpc.ServiceDesc for ZCryptManager service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -252,6 +286,10 @@ var ZCryptManager_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NodeExists",
 			Handler:    _ZCryptManager_NodeExists_Handler,
+		},
+		{
+			MethodName: "HasNodesSupport",
+			Handler:    _ZCryptManager_HasNodesSupport_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -37,7 +37,7 @@ RUN go mod download
 COPY cex-device-plugin/ap.go cex-device-plugin/cryptoconfigs.go \
      cex-device-plugin/main.go cex-device-plugin/plugin.go cex-device-plugin/mdev-plugin.go \
      cex-device-plugin/podlister.go cex-device-plugin/shadowsysfs.go \
-     cex-device-plugin/grpc_client.go cex-device-plugin/zcrypt.go cex-device-plugin/metricscollector.go ./
+     cex-device-plugin/grpc_client.go cex-device-plugin/metricscollector.go ./
 
 COPY cex-device-plugin/zcryptpb ./zcryptpb
 
