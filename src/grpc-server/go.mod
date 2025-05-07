@@ -6,6 +6,7 @@ toolchain go1.23.8
 
 require (
 	cex-plugin v1.1.3
+	github.com/google/uuid v1.6.0
 	google.golang.org/grpc v1.72.0
 )
 

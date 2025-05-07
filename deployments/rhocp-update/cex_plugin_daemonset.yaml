@@ -25,7 +25,7 @@ spec:
       # Container is not needed.
       containers:
       - name: cex-plugin
-        image: 'localhost:5000/ibm-cex-plugin-cm:v1.1.5'
+        image: 'localhost:5000/ibm-cex-plugin-cm:v1.1.6'
         imagePullPolicy: Always
         securityContext:
           privileged: true
@@ -56,7 +56,7 @@ spec:
             # the cex_resources.json file is showing up in this dir
             mountPath: /config/
       - name: grpc-server
-        image: 'localhost:5000/grpc-server:0.0.2'
+        image: 'localhost:5000/grpc-server:0.0.3'
         imagePullPolicy: Always
         ports:
           - containerPort: 50051

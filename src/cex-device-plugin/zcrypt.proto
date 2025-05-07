@@ -9,6 +9,8 @@ option go_package = "./zcryptpb"; // Adjust the path as needed
 service ZCryptManager {
   // RPC method to create the simple device node
   rpc CreateSimpleNode (CreateSimpleNodeRequest) returns (CreateSimpleNodeResponse) {}
+  // RPC method to create a mediated device node
+  rpc CreateMdevNode (CreateMdevNodeRequest) returns (CreateMdevNodeResponse) {}
 }
 
 // The request message containing necessary info for node creation.
@@ -26,4 +28,16 @@ message CreateSimpleNodeResponse {
   bool success = 1;
   string node_path = 2;     // The path of the created node, if applicable
   string error_message = 3; // Detailed error message if success is false
+}
+
+// The request message for creating a mediated device node
+message CreateMdevNodeRequest {
+  string apqn = 1;  // The APQN in format "XX.XXXX"
+}
+
+// The response message for mediated device node creation
+message CreateMdevNodeResponse {
+  bool success = 1;
+  string device_path = 2;  // The path of the created device node (e.g. /dev/vfio/N)
+  string error_message = 3; // Error message if creation failed
 }

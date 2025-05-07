@@ -42,6 +42,26 @@ func (s *zcryptServer) CreateSimpleNode(ctx context.Context, req *pb.CreateSimpl
 	}, nil
 }
 
+// CreateMdevNode is the RPC handler for creating mediated devices
+func (s *zcryptServer) CreateMdevNode(ctx context.Context, req *pb.CreateMdevNodeRequest) (*pb.CreateMdevNodeResponse, error) {
+	log.Printf("Received CreateMdevNode request: APQN=%s", req.Apqn)
+
+	devicePath, err := zcryptCreateMDevNode(req.Apqn)
+	if err != nil {
+		log.Printf("Error creating mediated device for APQN %s: %v", req.Apqn, err)
+		return &pb.CreateMdevNodeResponse{
+			Success:      false,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	log.Printf("Successfully created mediated device for APQN %s at %s", req.Apqn, devicePath)
+	return &pb.CreateMdevNodeResponse{
+		Success:    true,
+		DevicePath: devicePath,
+	}, nil
+}
+
 func main() {
 	log.Printf("Starting zcrypt gRPC server on port %s", grpcPort)
 	lis, err := net.Listen("tcp", grpcPort)

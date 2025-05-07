@@ -26,9 +26,12 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -282,4 +285,107 @@ func zcryptFetchActiveNodes() ([]string, error) {
 	}
 
 	return nodes, nil
+}
+
+func writeToFile(path, content string) error {
+	return ioutil.WriteFile(path, []byte(content), 0644)
+}
+
+func readLink(path string) (string, error) {
+	link, err := os.Readlink(path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Base(link), nil
+}
+
+// zcryptCreateMDevNode creates a mediated device node for the given APQN
+func zcryptCreateMDevNode(apqn string) (string, error) {
+	const (
+		devBase             = "/dev/vfio"
+		sysBusBase          = "/sys/bus/ap"
+		sysDeviceApBase     = "/sys/devices/ap/"
+		sysDeviceVfioMatrix = "/sys/devices/vfio_ap/matrix"
+		commandFile         = "mdev_supported_types/vfio_ap-passthrough/create"
+		driverProbe         = "/sys/bus/ap/drivers_probe"
+	)
+
+	// Validate APQN format
+	if !strings.Contains(apqn, ".") || len(apqn) < 7 {
+		return "", fmt.Errorf("incorrect format for APQN: %s", apqn)
+	}
+
+	// Extract APID and APQI
+	parts := strings.Split(apqn, ".")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("incorrect format for APQN: %s", apqn)
+	}
+
+	apid := strings.TrimLeft(parts[0], "0")
+	if apid == "" {
+		apid = "0"
+	}
+	apqi := strings.TrimLeft(parts[1], "0")
+	if apqi == "" {
+		apqi = "0"
+	}
+
+	// Check if driver_override function is available
+	if _, err := os.Stat(filepath.Join(sysDeviceApBase, fmt.Sprintf("card%02s", apid), apqn, "driver_override")); err == nil {
+		// Unbind the device from the host like: echo "${apqn}" > /sys/devices/ap/card${apid}/${apid}.00${apqi}/driver/unbind
+		unbindPath := filepath.Join(sysDeviceApBase, fmt.Sprintf("card%02s", apid), apqn, "driver", "unbind")
+		if err := writeToFile(unbindPath, apqn); err != nil {
+			return "", fmt.Errorf("failed to unbind device: %w", err)
+		}
+		// Override the driver like: echo "vfio_ap" > /sys/devices/ap/card${apid}/${apid}.00${apqi}/driver_override
+		driverOverridePath := filepath.Join(sysDeviceApBase, fmt.Sprintf("card%02s", apid), apqn, "driver_override")
+		if err := writeToFile(driverOverridePath, "vfio_ap"); err != nil {
+			return "", fmt.Errorf("failed to override driver: %w", err)
+		}
+		// Probe the device like: echo "${apqn}" | sudo tee /sys/bus/ap/drivers_probe
+		probePath := filepath.Join(sysBusBase, "drivers_probe")
+		if err := writeToFile(probePath, apqn); err != nil {
+			return "", fmt.Errorf("failed to probe device: %w", err)
+		}
+	} else {
+		// Otherwise, release the device from the host in a traditional way
+		if err := writeToFile(filepath.Join(sysBusBase, "apmask"), fmt.Sprintf("-0x%s", apid)); err != nil {
+			return "", fmt.Errorf("failed to update apmask: %w", err)
+		}
+		if err := writeToFile(filepath.Join(sysBusBase, "aqmask"), fmt.Sprintf("-0x%s", apqi)); err != nil {
+			return "", fmt.Errorf("failed to update aqmask: %w", err)
+		}
+	}
+
+	// Create a mediated device (mdev)
+	commandPath := filepath.Join(sysDeviceVfioMatrix, commandFile)
+	if _, err := os.Stat(commandPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("command file not found: %s", commandPath)
+	}
+
+	mdevUUID := uuid.New().String()
+	if err := writeToFile(commandPath, mdevUUID); err != nil {
+		return "", fmt.Errorf("failed to create mediated device: %w", err)
+	}
+
+	// Verify the mediated device
+	mdevPath := filepath.Join(sysDeviceVfioMatrix, mdevUUID)
+	if _, err := os.Stat(filepath.Join(mdevPath, "iommu_group")); os.IsNotExist(err) {
+		return "", fmt.Errorf("iommu_group not found for mdev: %s", mdevUUID)
+	}
+
+	devIndex, err := readLink(filepath.Join(mdevPath, "iommu_group"))
+	if err != nil || devIndex == "" {
+		return "", fmt.Errorf("failed to get dev_index for mdev: %s", mdevUUID)
+	}
+
+	// Assign adapter and domain
+	if err := writeToFile(filepath.Join(mdevPath, "assign_adapter"), fmt.Sprintf("0x%s", apid)); err != nil {
+		return "", fmt.Errorf("failed to assign adapter: %w", err)
+	}
+	if err := writeToFile(filepath.Join(mdevPath, "assign_domain"), fmt.Sprintf("0x%s", apqi)); err != nil {
+		return "", fmt.Errorf("failed to assign domain: %w", err)
+	}
+
+	return fmt.Sprintf("%s/%s", devBase, devIndex), nil
 }
