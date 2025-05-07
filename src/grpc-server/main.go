@@ -89,6 +89,13 @@ func (s *server) DestroyNode(ctx context.Context, req *pb.DestroyNodeRequest) (*
 	}, nil
 }
 
+func (s *server) NodeExists(ctx context.Context, req *pb.NodeExistsRequest) (*pb.NodeExistsResponse, error) {
+	exists := zcryptNodeExists(req.Nodename)
+	return &pb.NodeExistsResponse{
+		Exists: exists,
+	}, nil
+}
+
 func main() {
 	log.Printf("Starting zcrypt gRPC server on port %s", grpcPort)
 	lis, err := net.Listen("tcp", grpcPort)

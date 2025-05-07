@@ -334,16 +334,30 @@ func (p *ZCryptoResPlugin) Allocate(ctx context.Context, req *kdp.AllocateReques
 			}
 			// check and maybe create a zcrypt device node
 			znode := fmt.Sprintf("zcrypt-"+ApqnFmtStr, card, queue, overcount)
-			if !zcryptNodeExists(znode) {
+			// Set up gRPC timeout context
+			callTimeout := 10 * time.Second
+			rpcCtx, rpcCancel := context.WithTimeout(ctx, callTimeout)
+			defer rpcCancel()
+
+			// Check if node exists using gRPC
+			log.Printf("Calling NodeExists gRPC for Device ID: %s", id)
+			nodeExistsResp, err := ExecuteGrpcCall(rpcCtx, func(client pb.ZCryptManagerClient) (*pb.NodeExistsResponse, error) {
+				return client.NodeExists(rpcCtx, &pb.NodeExistsRequest{
+					Nodename: znode,
+				})
+			})
+			if err != nil {
+				log.Printf("Plugin['%s']: Error checking if zcrypt node '%s' exists: %s\n", p.resource, znode, err)
+				return nil, fmt.Errorf("Error checking if zcrypt node '%s' exists", znode)
+			}
+
+			if !nodeExistsResp.Exists {
 				log.Printf("Plugin['%s']: creating zcrypt device node '%s'\n", p.resource, znode)
 				grpcReq := &pb.CreateSimpleNodeRequest{
 					Nodename: znode,
 					Adapter:  int32(card),
 					Domain:   int32(queue),
 				}
-				callTimeout := 10 * time.Second
-				rpcCtx, rpcCancel := context.WithTimeout(ctx, callTimeout)
-				defer rpcCancel()
 				log.Printf("Calling CreateSimpleNode gRPC for Device ID: %s", id)
 
 				grpcResp, err := ExecuteGrpcCall(rpcCtx, func(client pb.ZCryptManagerClient) (*pb.CreateSimpleNodeResponse, error) {

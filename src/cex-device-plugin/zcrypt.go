@@ -27,9 +27,7 @@ import (
 )
 
 const (
-	zcryptclassdir     = "/sys/class/zcrypt"
-	zcryptvdevdir      = "/sys/devices/virtual/zcrypt"
-	zcryptnodefilemode = 0666
+	zcryptclassdir = "/sys/class/zcrypt"
 )
 
 func zcryptHasNodesSupport() bool {
@@ -42,15 +40,6 @@ func zcryptHasNodesSupport() bool {
 			log.Printf("Zcrypt: Error reading zcrypt multiple nodes support dir: %s\n", err)
 			return false
 		}
-	}
-	return true
-}
-
-func zcryptNodeExists(nodename string) bool {
-	dirname := zcryptvdevdir + "/" + nodename
-	_, err := os.Stat(dirname)
-	if err != nil {
-		return false
 	}
 	return true
 }
