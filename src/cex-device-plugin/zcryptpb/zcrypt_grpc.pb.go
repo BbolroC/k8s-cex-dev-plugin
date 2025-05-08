@@ -34,6 +34,8 @@ type ZCryptManagerClient interface {
 	NodeExists(ctx context.Context, in *NodeExistsRequest, opts ...grpc.CallOption) (*NodeExistsResponse, error)
 	// RPC method to check if zcrypt has nodes support
 	HasNodesSupport(ctx context.Context, in *HasNodesSupportRequest, opts ...grpc.CallOption) (*HasNodesSupportResponse, error)
+	// RPC method to create shadow AP sysfs
+	MakeShadowApSysfs(ctx context.Context, in *MakeShadowApSysfsRequest, opts ...grpc.CallOption) (*MakeShadowApSysfsResponse, error)
 }
 
 type zCryptManagerClient struct {
@@ -98,6 +100,15 @@ func (c *zCryptManagerClient) HasNodesSupport(ctx context.Context, in *HasNodesS
 	return out, nil
 }
 
+func (c *zCryptManagerClient) MakeShadowApSysfs(ctx context.Context, in *MakeShadowApSysfsRequest, opts ...grpc.CallOption) (*MakeShadowApSysfsResponse, error) {
+	out := new(MakeShadowApSysfsResponse)
+	err := c.cc.Invoke(ctx, "/zcrypt.ZCryptManager/MakeShadowApSysfs", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ZCryptManagerServer is the server API for ZCryptManager service.
 // All implementations must embed UnimplementedZCryptManagerServer
 // for forward compatibility
@@ -114,6 +125,8 @@ type ZCryptManagerServer interface {
 	NodeExists(context.Context, *NodeExistsRequest) (*NodeExistsResponse, error)
 	// RPC method to check if zcrypt has nodes support
 	HasNodesSupport(context.Context, *HasNodesSupportRequest) (*HasNodesSupportResponse, error)
+	// RPC method to create shadow AP sysfs
+	MakeShadowApSysfs(context.Context, *MakeShadowApSysfsRequest) (*MakeShadowApSysfsResponse, error)
 	mustEmbedUnimplementedZCryptManagerServer()
 }
 
@@ -138,6 +151,9 @@ func (UnimplementedZCryptManagerServer) NodeExists(context.Context, *NodeExistsR
 }
 func (UnimplementedZCryptManagerServer) HasNodesSupport(context.Context, *HasNodesSupportRequest) (*HasNodesSupportResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HasNodesSupport not implemented")
+}
+func (UnimplementedZCryptManagerServer) MakeShadowApSysfs(context.Context, *MakeShadowApSysfsRequest) (*MakeShadowApSysfsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MakeShadowApSysfs not implemented")
 }
 func (UnimplementedZCryptManagerServer) mustEmbedUnimplementedZCryptManagerServer() {}
 
@@ -260,6 +276,24 @@ func _ZCryptManager_HasNodesSupport_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ZCryptManager_MakeShadowApSysfs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MakeShadowApSysfsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ZCryptManagerServer).MakeShadowApSysfs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/zcrypt.ZCryptManager/MakeShadowApSysfs",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ZCryptManagerServer).MakeShadowApSysfs(ctx, req.(*MakeShadowApSysfsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ZCryptManager_ServiceDesc is the grpc.ServiceDesc for ZCryptManager service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -290,6 +324,10 @@ var ZCryptManager_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "HasNodesSupport",
 			Handler:    _ZCryptManager_HasNodesSupport_Handler,
+		},
+		{
+			MethodName: "MakeShadowApSysfs",
+			Handler:    _ZCryptManager_MakeShadowApSysfs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

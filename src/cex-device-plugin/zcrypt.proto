@@ -19,6 +19,8 @@ service ZCryptManager {
   rpc NodeExists (NodeExistsRequest) returns (NodeExistsResponse) {}
   // RPC method to check if zcrypt has nodes support
   rpc HasNodesSupport (HasNodesSupportRequest) returns (HasNodesSupportResponse) {}
+  // RPC method to create shadow AP sysfs
+  rpc MakeShadowApSysfs (MakeShadowApSysfsRequest) returns (MakeShadowApSysfsResponse) {}
 }
 
 // The request message containing necessary info for node creation.
@@ -92,4 +94,18 @@ message HasNodesSupportRequest {
 message HasNodesSupportResponse {
   bool has_support = 1;
   string error_message = 2;
+}
+
+// The request message for creating shadow AP sysfs
+message MakeShadowApSysfsRequest {
+  string id = 1;      // The ID for the shadow sysfs
+  int32 adapter = 2;  // The adapter number
+  int32 domain = 3;   // The domain number
+}
+
+// The response message for shadow AP sysfs creation
+message MakeShadowApSysfsResponse {
+  string shadow_path = 1;  // The path of the shadow AP bus directory
+  string shadow_name = 2;  // The name of the shadow AP device directory
+  string error_message = 3; // Error message if the operation failed
 }

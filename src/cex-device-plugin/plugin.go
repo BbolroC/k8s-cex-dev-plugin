@@ -371,8 +371,14 @@ func (p *ZCryptoResPlugin) Allocate(ctx context.Context, req *kdp.AllocateReques
 			dev.ContainerPath = "/dev/z90crypt"
 			dev.Permissions = "rw"
 			carsp.Devices = append(carsp.Devices, dev)
-			// create AP bus and devices shadow sysfs for this container and mount them into the container
-			apbusdir, apdevsdir, err := makeShadowApSysfs(id, card, queue)
+			// create shadow sysfs for this apqn
+			resp, err := WithGrpcCall(ctx, 10, "MakeShadowApSysfs", func(client pb.ZCryptManagerClient) (*pb.MakeShadowApSysfsResponse, error) {
+				return client.MakeShadowApSysfs(ctx, &pb.MakeShadowApSysfsRequest{
+					Id:      id,
+					Adapter: int32(card),
+					Domain:  int32(queue),
+				})
+			})
 			if err != nil {
 				log.Printf("Plugin['%s']: Error creating shadow sysfs for device '%s': %s\n", p.resource, id, err)
 				// Defer the gRPC call to destroy the node
@@ -392,11 +398,11 @@ func (p *ZCryptoResPlugin) Allocate(ctx context.Context, req *kdp.AllocateReques
 			}
 			carsp.Mounts = append(carsp.Mounts, &kdp.Mount{
 				ContainerPath: "/sys/bus/ap",
-				HostPath:      apbusdir,
+				HostPath:      resp.ShadowPath,
 				ReadOnly:      true})
 			carsp.Mounts = append(carsp.Mounts, &kdp.Mount{
 				ContainerPath: "/sys/devices/ap",
-				HostPath:      apdevsdir,
+				HostPath:      resp.ShadowName,
 				ReadOnly:      true})
 			p.tellMetricsCollAboutAlloc(id)
 			// only one device per container supported

@@ -56,7 +56,7 @@ spec:
             # the cex_resources.json file is showing up in this dir
             mountPath: /config/
       - name: grpc-server
-        image: 'localhost:5000/grpc-server:0.0.7'
+        image: 'localhost:5000/grpc-server:0.0.8'
         imagePullPolicy: Always
         ports:
           - containerPort: 50051
@@ -65,6 +65,8 @@ spec:
           privileged: true
         command: ["/root/grpc-server"]
         volumeMounts:
+          - name: vartmp
+            mountPath: /var/tmp
           - name: dev
             mountPath: /dev
           - name: sys

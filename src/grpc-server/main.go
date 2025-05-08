@@ -103,6 +103,22 @@ func (s *server) HasNodesSupport(ctx context.Context, req *pb.HasNodesSupportReq
 	}, nil
 }
 
+func (s *server) MakeShadowApSysfs(ctx context.Context, req *pb.MakeShadowApSysfsRequest) (*pb.MakeShadowApSysfsResponse, error) {
+	shadowPath, shadowName, err := makeShadowApSysfs(req.Id, int(req.Adapter), int(req.Domain))
+	if err != nil {
+		return &pb.MakeShadowApSysfsResponse{
+			ShadowPath:   "",
+			ShadowName:   "",
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+	return &pb.MakeShadowApSysfsResponse{
+		ShadowPath:   shadowPath,
+		ShadowName:   shadowName,
+		ErrorMessage: "",
+	}, nil
+}
+
 func main() {
 	log.Printf("Starting zcrypt gRPC server on port %s", grpcPort)
 	lis, err := net.Listen("tcp", grpcPort)
