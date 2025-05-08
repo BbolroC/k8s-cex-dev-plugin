@@ -21,6 +21,8 @@ service ZCryptManager {
   rpc HasNodesSupport (HasNodesSupportRequest) returns (HasNodesSupportResponse) {}
   // RPC method to create shadow AP sysfs
   rpc MakeShadowApSysfs (MakeShadowApSysfsRequest) returns (MakeShadowApSysfsResponse) {}
+  // RPC method to delete shadow AP sysfs
+  rpc DelShadowSysfs (DelShadowSysfsRequest) returns (DelShadowSysfsResponse) {}
 }
 
 // The request message containing necessary info for node creation.
@@ -108,4 +110,15 @@ message MakeShadowApSysfsResponse {
   string shadow_path = 1;  // The path of the shadow AP bus directory
   string shadow_name = 2;  // The name of the shadow AP device directory
   string error_message = 3; // Error message if the operation failed
+}
+
+// The request message for deleting shadow AP sysfs
+message DelShadowSysfsRequest {
+  string id = 1;      // The ID of the shadow sysfs to delete
+}
+
+// The response message for shadow AP sysfs deletion
+message DelShadowSysfsResponse {
+  bool success = 1;           // Whether the operation was successful
+  string error_message = 2;   // Error message if the operation failed
 }

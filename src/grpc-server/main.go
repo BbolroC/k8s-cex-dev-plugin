@@ -119,6 +119,16 @@ func (s *server) MakeShadowApSysfs(ctx context.Context, req *pb.MakeShadowApSysf
 	}, nil
 }
 
+func (s *server) DelShadowSysfs(ctx context.Context, req *pb.DelShadowSysfsRequest) (*pb.DelShadowSysfsResponse, error) {
+	log.Printf("Received DelShadowSysfs request: ID=%s", req.Id)
+
+	delShadowSysfs(req.Id)
+
+	return &pb.DelShadowSysfsResponse{
+		Success: true,
+	}, nil
+}
+
 func main() {
 	log.Printf("Starting zcrypt gRPC server on port %s", grpcPort)
 	lis, err := net.Listen("tcp", grpcPort)

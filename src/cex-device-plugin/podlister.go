@@ -374,7 +374,19 @@ func (pl *PodLister) doLoop() error {
 				// within DeleteResourceTimeoutIfUnused s never seen a container using this
 				log.Printf("PodLister: deleting shadow sysfs '%s': no container ever used it since %d s\n",
 					sk, DeleteResourceTimeoutIfUnused)
-				delShadowSysfs(sk)
+				resp, err := WithGrpcCall(context.Background(), 10, "DelShadowSysfs", func(client pb.ZCryptManagerClient) (*pb.DelShadowSysfsResponse, error) {
+					return client.DelShadowSysfs(context.Background(), &pb.DelShadowSysfsRequest{
+						Id: sk,
+					})
+				})
+				if err != nil {
+					log.Printf("PodLister: Failed to delete shadow sysfs '%s' via gRPC: %v\n", sk, err)
+					continue
+				}
+				if !resp.Success {
+					log.Printf("PodLister: Failed to delete shadow sysfs '%s': %s\n", sk, resp.ErrorMessage)
+					continue
+				}
 				delete(sysfsshadowmap, sk)
 			}
 		} else {
@@ -383,7 +395,19 @@ func (pl *PodLister) doLoop() error {
 				// container using this has not been seen for DeleteResourceTimeoutAfterUse s
 				log.Printf("PodLister: deleting shadow sysfs '%s': no container use since %d s\n",
 					sk, DeleteResourceTimeoutAfterUse)
-				delShadowSysfs(sk)
+				resp, err := WithGrpcCall(context.Background(), 10, "DelShadowSysfs", func(client pb.ZCryptManagerClient) (*pb.DelShadowSysfsResponse, error) {
+					return client.DelShadowSysfs(context.Background(), &pb.DelShadowSysfsRequest{
+						Id: sk,
+					})
+				})
+				if err != nil {
+					log.Printf("PodLister: Failed to delete shadow sysfs '%s' via gRPC: %v\n", sk, err)
+					continue
+				}
+				if !resp.Success {
+					log.Printf("PodLister: Failed to delete shadow sysfs '%s': %s\n", sk, resp.ErrorMessage)
+					continue
+				}
 				delete(sysfsshadowmap, sk)
 			}
 		}

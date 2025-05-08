@@ -73,8 +73,3 @@ func shadowFetchActiveShadows() ([]string, error) {
 
 	return shadowdirs, nil
 }
-
-func delShadowSysfs(shadowdir string) {
-	dir := fmt.Sprintf("%s/%s", shadowbasedir, shadowdir)
-	os.RemoveAll(dir)
-}
