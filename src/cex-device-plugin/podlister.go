@@ -212,10 +212,19 @@ func (pl *PodLister) doLoop() error {
 	}
 
 	// update sysfsshadowmap with maybe new active shadow sysfs dirs
-	shadows, err := shadowFetchActiveShadows()
+	shadow_resp, err := WithGrpcCall(context.Background(), 10, "FetchActiveShadows", func(client pb.ZCryptManagerClient) (*pb.FetchActiveShadowsResponse, error) {
+		return client.FetchActiveShadows(context.Background(), &pb.FetchActiveShadowsRequest{})
+	})
 	if err != nil {
-		return nil
+		log.Printf("PodLister: Failed to fetch active shadows via gRPC: %v\n", err)
+		return fmt.Errorf("PodLister: Failed to fetch active shadows via gRPC: %v", err)
 	}
+	if shadow_resp.ErrorMessage != "" {
+		log.Printf("PodLister: Failed to fetch active shadows: %s\n", shadow_resp.ErrorMessage)
+		return fmt.Errorf("PodLister: Failed to fetch active shadows: %s", shadow_resp.ErrorMessage)
+	}
+
+	shadows := shadow_resp.Shadows
 	log.Printf("PodLister: %d active sysfs shadow dirs\n", len(shadows))
 	for _, sn := range shadows {
 		_, found := sysfsshadowmap[sn]

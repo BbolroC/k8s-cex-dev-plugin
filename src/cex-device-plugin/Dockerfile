@@ -32,7 +32,7 @@ RUN go mod download
 
 # Copy the code into the build dir
 COPY ap.go cryptoconfigs.go main.go plugin.go mdev-plugin.go podlister.go \
-     shadowsysfs.go grpc_client.go metricscollector.go ./
+     grpc_client.go metricscollector.go ./
 
 COPY ./zcryptpb ./zcryptpb
 

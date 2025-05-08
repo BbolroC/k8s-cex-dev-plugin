@@ -129,6 +129,23 @@ func (s *server) DelShadowSysfs(ctx context.Context, req *pb.DelShadowSysfsReque
 	}, nil
 }
 
+func (s *server) FetchActiveShadows(ctx context.Context, req *pb.FetchActiveShadowsRequest) (*pb.FetchActiveShadowsResponse, error) {
+	log.Printf("Received FetchActiveShadows request")
+
+	shadows, err := shadowFetchActiveShadows()
+	if err != nil {
+		return &pb.FetchActiveShadowsResponse{
+			Shadows:      nil,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	return &pb.FetchActiveShadowsResponse{
+		Shadows:      shadows,
+		ErrorMessage: "",
+	}, nil
+}
+
 func main() {
 	log.Printf("Starting zcrypt gRPC server on port %s", grpcPort)
 	lis, err := net.Listen("tcp", grpcPort)

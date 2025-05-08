@@ -23,6 +23,8 @@ service ZCryptManager {
   rpc MakeShadowApSysfs (MakeShadowApSysfsRequest) returns (MakeShadowApSysfsResponse) {}
   // RPC method to delete shadow AP sysfs
   rpc DelShadowSysfs (DelShadowSysfsRequest) returns (DelShadowSysfsResponse) {}
+  // RPC method to fetch active shadow sysfs directories
+  rpc FetchActiveShadows (FetchActiveShadowsRequest) returns (FetchActiveShadowsResponse) {}
 }
 
 // The request message containing necessary info for node creation.
@@ -121,4 +123,15 @@ message DelShadowSysfsRequest {
 message DelShadowSysfsResponse {
   bool success = 1;           // Whether the operation was successful
   string error_message = 2;   // Error message if the operation failed
+}
+
+// The request message for fetching active shadow sysfs directories
+message FetchActiveShadowsRequest {
+  // Empty request as we just need to list all active shadow directories
+}
+
+// The response message containing active shadow sysfs directories
+message FetchActiveShadowsResponse {
+  repeated string shadows = 1;  // List of active shadow directory names
+  string error_message = 2;     // Error message if the operation failed
 }
