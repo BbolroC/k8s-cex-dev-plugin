@@ -72,3 +72,13 @@ func CloseGrpcConn() {
 		grpcClient = nil
 	}
 }
+
+// WithGrpcCall is a wrapper function that handles the common gRPC call pattern
+func WithGrpcCall[T any](ctx context.Context, timeoutSeconds int, operation string, call func(pb.ZCryptManagerClient) (T, error)) (T, error) {
+	callTimeout := time.Duration(timeoutSeconds) * time.Second
+	rpcCtx, rpcCancel := context.WithTimeout(ctx, callTimeout)
+	defer rpcCancel()
+
+	log.Printf("Calling %s via gRPC", operation)
+	return ExecuteGrpcCall(rpcCtx, call)
+}

@@ -26,7 +26,6 @@ import (
 	"flag"
 	"log"
 	"os"
-	"time"
 
 	pb "cex-plugin/zcryptpb"
 )
@@ -87,20 +86,15 @@ func main() {
 		log.Fatalf("Main: Crypto configuration verification failed.\n")
 	}
 
-	// check if zcrypt has multiple nodes support
-	callTimeout := 10 * time.Second
-	rpcCtx, rpcCancel := context.WithTimeout(context.Background(), callTimeout)
-	defer rpcCancel()
-
 	// Initialize gRPC client first
 	if err := InitGrpcClient(context.Background(), "localhost:50051"); err != nil {
 		log.Fatalf("Main: Failed to initialize gRPC client: %s\n", err)
 	}
 	defer CloseGrpcConn()
 
-	log.Printf("Main: Checking zcrypt nodes support via gRPC")
-	resp, err := ExecuteGrpcCall(rpcCtx, func(client pb.ZCryptManagerClient) (*pb.HasNodesSupportResponse, error) {
-		return client.HasNodesSupport(rpcCtx, &pb.HasNodesSupportRequest{})
+	// check if zcrypt has multiple nodes support
+	resp, err := WithGrpcCall(context.Background(), 10, "HasNodesSupport", func(client pb.ZCryptManagerClient) (*pb.HasNodesSupportResponse, error) {
+		return client.HasNodesSupport(context.Background(), &pb.HasNodesSupportRequest{})
 	})
 	if err != nil {
 		log.Fatalf("Failed to check zcrypt nodes support via gRPC: %v", err)

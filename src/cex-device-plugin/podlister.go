@@ -191,7 +191,7 @@ func (pl *PodLister) doLoop() error {
 	}
 
 	// update zcryptnodemap with maybe new active zcrypt nodes using gRPC
-	resp, err := ExecuteGrpcCall(context.Background(), func(client pb.ZCryptManagerClient) (*pb.FetchActiveNodesResponse, error) {
+	resp, err := WithGrpcCall(context.Background(), 10, "FetchActiveNodes", func(client pb.ZCryptManagerClient) (*pb.FetchActiveNodesResponse, error) {
 		return client.FetchActiveNodes(context.Background(), &pb.FetchActiveNodesRequest{})
 	})
 	if err != nil {
@@ -322,13 +322,8 @@ func (pl *PodLister) doLoop() error {
 				pl.tellMetricsCollAboutDestroyNode(zk)
 
 				// Use gRPC to destroy the node
-				callTimeout := 10 * time.Second
-				rpcCtx, rpcCancel := context.WithTimeout(context.Background(), callTimeout)
-				defer rpcCancel()
-				log.Printf("Calling DestroyNode gRPC for Device ID: %s", zk)
-
-				resp, err := ExecuteGrpcCall(rpcCtx, func(client pb.ZCryptManagerClient) (*pb.DestroyNodeResponse, error) {
-					return client.DestroyNode(rpcCtx, &pb.DestroyNodeRequest{
+				resp, err := WithGrpcCall(context.Background(), 10, "DestroyNode", func(client pb.ZCryptManagerClient) (*pb.DestroyNodeResponse, error) {
+					return client.DestroyNode(context.Background(), &pb.DestroyNodeRequest{
 						Nodename: zk,
 					})
 				})
@@ -352,13 +347,8 @@ func (pl *PodLister) doLoop() error {
 				pl.tellMetricsCollAboutDestroyNode(zk)
 
 				// Use gRPC to destroy the node
-				callTimeout := 10 * time.Second
-				rpcCtx, rpcCancel := context.WithTimeout(context.Background(), callTimeout)
-				defer rpcCancel()
-				log.Printf("Calling DestroyNode gRPC for Device ID: %s", zk)
-
-				resp, err := ExecuteGrpcCall(rpcCtx, func(client pb.ZCryptManagerClient) (*pb.DestroyNodeResponse, error) {
-					return client.DestroyNode(rpcCtx, &pb.DestroyNodeRequest{
+				resp, err := WithGrpcCall(context.Background(), 10, "DestroyNode", func(client pb.ZCryptManagerClient) (*pb.DestroyNodeResponse, error) {
+					return client.DestroyNode(context.Background(), &pb.DestroyNodeRequest{
 						Nodename: zk,
 					})
 				})

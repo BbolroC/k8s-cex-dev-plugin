@@ -334,15 +334,8 @@ func (p *ZCryptoResPlugin) Allocate(ctx context.Context, req *kdp.AllocateReques
 			}
 			// check and maybe create a zcrypt device node
 			znode := fmt.Sprintf("zcrypt-"+ApqnFmtStr, card, queue, overcount)
-			// Set up gRPC timeout context
-			callTimeout := 10 * time.Second
-			rpcCtx, rpcCancel := context.WithTimeout(ctx, callTimeout)
-			defer rpcCancel()
-
-			// Check if node exists using gRPC
-			log.Printf("Calling NodeExists gRPC for Device ID: %s", id)
-			nodeExistsResp, err := ExecuteGrpcCall(rpcCtx, func(client pb.ZCryptManagerClient) (*pb.NodeExistsResponse, error) {
-				return client.NodeExists(rpcCtx, &pb.NodeExistsRequest{
+			nodeExistsResp, err := WithGrpcCall(ctx, 10, "NodeExists", func(client pb.ZCryptManagerClient) (*pb.NodeExistsResponse, error) {
+				return client.NodeExists(ctx, &pb.NodeExistsRequest{
 					Nodename: znode,
 				})
 			})
@@ -353,15 +346,12 @@ func (p *ZCryptoResPlugin) Allocate(ctx context.Context, req *kdp.AllocateReques
 
 			if !nodeExistsResp.Exists {
 				log.Printf("Plugin['%s']: creating zcrypt device node '%s'\n", p.resource, znode)
-				grpcReq := &pb.CreateSimpleNodeRequest{
-					Nodename: znode,
-					Adapter:  int32(card),
-					Domain:   int32(queue),
-				}
-				log.Printf("Calling CreateSimpleNode gRPC for Device ID: %s", id)
-
-				grpcResp, err := ExecuteGrpcCall(rpcCtx, func(client pb.ZCryptManagerClient) (*pb.CreateSimpleNodeResponse, error) {
-					return client.CreateSimpleNode(rpcCtx, grpcReq)
+				grpcResp, err := WithGrpcCall(ctx, 10, "CreateSimpleNode", func(client pb.ZCryptManagerClient) (*pb.CreateSimpleNodeResponse, error) {
+					return client.CreateSimpleNode(ctx, &pb.CreateSimpleNodeRequest{
+						Nodename: znode,
+						Adapter:  int32(card),
+						Domain:   int32(queue),
+					})
 				})
 				if err != nil {
 					log.Printf("Plugin['%s']: Error creating zcrypt node '%s': %s\n", p.resource, znode, err)
@@ -387,16 +377,10 @@ func (p *ZCryptoResPlugin) Allocate(ctx context.Context, req *kdp.AllocateReques
 				log.Printf("Plugin['%s']: Error creating shadow sysfs for device '%s': %s\n", p.resource, id, err)
 				// Defer the gRPC call to destroy the node
 				defer func() {
-					grpcReq := &pb.DestroyNodeRequest{
-						Nodename: znode,
-					}
-					callTimeout := 10 * time.Second
-					rpcCtx, rpcCancel := context.WithTimeout(context.Background(), callTimeout)
-					defer rpcCancel()
-					log.Printf("Calling DestroyNode gRPC for Device ID: %s", id)
-
-					grpcResp, err := ExecuteGrpcCall(rpcCtx, func(client pb.ZCryptManagerClient) (*pb.DestroyNodeResponse, error) {
-						return client.DestroyNode(rpcCtx, grpcReq)
+					grpcResp, err := WithGrpcCall(context.Background(), 10, "DestroyNode", func(client pb.ZCryptManagerClient) (*pb.DestroyNodeResponse, error) {
+						return client.DestroyNode(context.Background(), &pb.DestroyNodeRequest{
+							Nodename: znode,
+						})
 					})
 					if err != nil {
 						log.Printf("Plugin['%s']: Error destroying zcrypt node '%s': %s\n", p.resource, znode, err)

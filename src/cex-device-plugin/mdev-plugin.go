@@ -226,16 +226,10 @@ func (p *ZMdevResPlugin) Allocate(ctx context.Context, req *kdp.AllocateRequest)
 			log.Printf("MDEV Plugin['%s']: creating mediated device node for APQN '%s'\n", p.resource, apqn)
 
 			// Create a mediated device using gRPC
-			grpcReq := &pb.CreateMdevNodeRequest{
-				Apqn: apqn,
-			}
-			callTimeout := 10 * time.Second
-			rpcCtx, rpcCancel := context.WithTimeout(ctx, callTimeout)
-			defer rpcCancel()
-			log.Printf("Calling CreateMdevNode gRPC for APQN: %s", apqn)
-
-			grpcResp, err := ExecuteGrpcCall(rpcCtx, func(client pb.ZCryptManagerClient) (*pb.CreateMdevNodeResponse, error) {
-				return client.CreateMdevNode(rpcCtx, grpcReq)
+			grpcResp, err := WithGrpcCall(ctx, 10, "CreateMdevNode", func(client pb.ZCryptManagerClient) (*pb.CreateMdevNodeResponse, error) {
+				return client.CreateMdevNode(ctx, &pb.CreateMdevNodeRequest{
+					Apqn: apqn,
+				})
 			})
 			if err != nil {
 				log.Printf("MDEV Plugin['%s']: Error creating zcrypt node '%s': %s\n", p.resource, znode, err)
