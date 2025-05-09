@@ -182,9 +182,16 @@ func (s *server) GetQueueRequestCounter(ctx context.Context, req *pb.GetQueueReq
 			ErrorMessage: err.Error(),
 		}, nil
 	}
-
 	return &pb.GetQueueRequestCounterResponse{
 		Counter:      int32(counter),
+		ErrorMessage: "",
+	}, nil
+}
+
+func (s *server) HasApSupport(ctx context.Context, req *pb.HasApSupportRequest) (*pb.HasApSupportResponse, error) {
+	hasSupport := apHasApSupport()
+	return &pb.HasApSupportResponse{
+		HasSupport:   hasSupport,
 		ErrorMessage: "",
 	}, nil
 }

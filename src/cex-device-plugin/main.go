@@ -55,8 +55,20 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Initialize gRPC client first
+	if err := InitGrpcClient(context.Background(), "localhost:50051"); err != nil {
+		log.Fatalf("Main: Failed to initialize gRPC client: %s\n", err)
+	}
+	defer CloseGrpcConn()
+
 	// check for AP bus support and machine id fetchable or die
-	if !apHasApSupport() {
+	ap_support_resp, err := WithGrpcCall(context.Background(), 10, "HasApSupport", func(client pb.ZCryptManagerClient) (*pb.HasApSupportResponse, error) {
+		return client.HasApSupport(context.Background(), &pb.HasApSupportRequest{})
+	})
+	if err != nil {
+		log.Fatalf("Main: Failed to check AP bus support via gRPC: %s\n", err)
+	}
+	if !ap_support_resp.HasSupport {
 		log.Fatalf("Main: No AP bus support available.\n")
 	}
 	mid, err := ccGetMachineId()
@@ -65,12 +77,6 @@ func main() {
 	}
 	MachineId = mid
 	log.Printf("Main: Machine id is '%s'\n", MachineId)
-
-	// Initialize gRPC client first
-	if err := InitGrpcClient(context.Background(), "localhost:50051"); err != nil {
-		log.Fatalf("Main: Failed to initialize gRPC client: %s\n", err)
-	}
-	defer CloseGrpcConn()
 
 	// initial list of the available apqns on this node or die
 	_, err = WithGrpcCall(context.Background(), 10, "ScanAPQNs", func(client pb.ZCryptManagerClient) (*pb.ScanAPQNsResponse, error) {

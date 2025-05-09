@@ -22,14 +22,7 @@
 package main
 
 import (
-	"bufio"
-	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"log"
-	"os"
-	"regexp"
 	"strings"
 )
 
@@ -64,21 +57,6 @@ func (l APQNList) String() string {
 		fmt.Fprintf(&b, "%s", e)
 	}
 	return b.String()
-}
-
-func apHasApSupport() bool {
-
-	_, err := os.Stat(apsysfsdir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			log.Printf("Ap: No AP bus support (AP bus sysfs dir does not exist)\n")
-		} else {
-			log.Printf("Ap: Error reading AP bus sysfs dir: %s\n", err)
-		}
-		return false
-	}
-
-	return true
 }
 
 func apEqualAPQNLists(l1, l2 APQNList) bool {

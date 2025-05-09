@@ -29,6 +29,8 @@ service ZCryptManager {
   rpc ScanAPQNs (ScanAPQNsRequest) returns (ScanAPQNsResponse) {}
   // RPC method to get queue request counter
   rpc GetQueueRequestCounter (GetQueueRequestCounterRequest) returns (GetQueueRequestCounterResponse) {}
+  // RPC method to check if zcrypt has AP support
+  rpc HasApSupport (HasApSupportRequest) returns (HasApSupportResponse) {}
 }
 
 // The request message containing necessary info for node creation.
@@ -169,5 +171,15 @@ message GetQueueRequestCounterRequest {
 // The response message for getting queue request counter
 message GetQueueRequestCounterResponse {
   int32 counter = 1;
+  string error_message = 2;
+}
+
+// The request message for checking if zcrypt has AP support
+message HasApSupportRequest {
+}
+
+// The response message for checking if zcrypt has AP support
+message HasApSupportResponse {
+  bool has_support = 1;
   string error_message = 2;
 }
