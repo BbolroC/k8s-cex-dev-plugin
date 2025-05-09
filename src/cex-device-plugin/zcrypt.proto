@@ -25,6 +25,8 @@ service ZCryptManager {
   rpc DelShadowSysfs (DelShadowSysfsRequest) returns (DelShadowSysfsResponse) {}
   // RPC method to fetch active shadow sysfs directories
   rpc FetchActiveShadows (FetchActiveShadowsRequest) returns (FetchActiveShadowsResponse) {}
+  // RPC method to fetch available APQNs
+  rpc ScanAPQNs (ScanAPQNsRequest) returns (ScanAPQNsResponse) {}
 }
 
 // The request message containing necessary info for node creation.
@@ -134,4 +136,24 @@ message FetchActiveShadowsRequest {
 message FetchActiveShadowsResponse {
   repeated string shadows = 1;  // List of active shadow directory names
   string error_message = 2;     // Error message if the operation failed
+}
+
+// The request message for scanning APQNs
+message ScanAPQNsRequest {
+  bool verbose = 1;
+}
+
+// The APQN message type
+message APQN {
+  int32 adapter = 1;
+  int32 domain = 2;
+  string gen = 3;
+  string mode = 4;
+  bool online = 5;
+}
+
+// The response message for scanning APQNs
+message ScanAPQNsResponse {
+  repeated APQN apqns = 1;
+  string error_message = 2;
 }

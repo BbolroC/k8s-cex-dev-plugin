@@ -99,6 +99,121 @@ func apReadFirstLineFromFile(fname string) (string, error) {
 	return str, nil
 }
 
+func apScanQueueDir(carddir, queuedir string) (*APQN, error) {
+
+	var card, queue int
+	n, err := fmt.Sscanf(queuedir, "%02x.%04x", &card, &queue)
+	if err != nil || n != 2 {
+		return nil, errors.New(fmt.Sprintf("Error parsing queuedir '%s'", queuedir))
+	}
+
+	online, err := apReadFirstLineFromFile(apsysfsdevsdir + "/" + carddir + "/" + queuedir + "/" + "online")
+	if err != nil {
+		log.Printf("Ap: Error reading 'online' file from queuedir '%s': %s: the device is exported\n", carddir, err)
+		return nil, fmt.Errorf("Ap: %s being exported", queuedir)
+	}
+
+	a := new(APQN)
+	a.Adapter = card
+	a.Domain = queue
+	if online[0] == '1' {
+		a.Online = true
+	}
+
+	//fmt.Printf("debug: apScanQueueDir apqn=%v\n", a)
+	return a, nil
+}
+
+func apScanCardDir(carddir string) (APQNList, error) {
+
+	var apqns APQNList
+
+	files, err := ioutil.ReadDir(apsysfsdevsdir + "/" + carddir)
+	if err != nil {
+		log.Printf("Ap: Error reading card directory '%s': %s\n", carddir, err)
+		return nil, fmt.Errorf("Ap: Error reading card directory '%s': %w", carddir, err)
+	}
+
+	cardtype, err := apReadFirstLineFromFile(apsysfsdevsdir + "/" + carddir + "/" + "type")
+	if err != nil {
+		log.Printf("Ap: Error reading 'type' file from card directory '%s': %s\n", carddir, err)
+		return nil, fmt.Errorf("Ap: Error reading 'type' file from card directory '%s': %w", carddir, err)
+	}
+	match, _ := regexp.MatchString("CEX[[:digit:]]+[ACP]", cardtype)
+	if !match {
+		log.Printf("Ap: Error matching cardtype '%s' from card directory '%s'\n", cardtype, carddir)
+		return nil, fmt.Errorf("Ap: Error matching cardtype '%s' from card directory '%s'", cardtype, carddir)
+	}
+	var cardgen int
+	var cardmode byte
+	n, err := fmt.Sscanf(cardtype, "CEX%d%c", &cardgen, &cardmode)
+	if err != nil || n != 2 {
+		log.Printf("Ap: Error parsing cardtype string '%s' from card directory '%s'\n", cardtype, carddir)
+		return nil, err
+	}
+	cgen := fmt.Sprintf("cex%d", cardgen)
+	cmode := "unknown"
+	switch cardmode {
+	case 'A':
+		cmode = "accel"
+	case 'C':
+		cmode = "cca"
+	case 'P':
+		cmode = "ep11"
+	}
+	//fmt.Printf("debug: cardgen=cex%d cardmode=%c\n", cardgen, cardmode)
+
+	for _, file := range files {
+		fname := file.Name()
+		match, _ := regexp.MatchString("[[:xdigit:]]{2}\\.[[:xdigit:]]{4}", fname)
+		if !match {
+			continue
+		}
+		//fmt.Printf("debug: scaning queuedir %s\n", fname)
+		a, err := apScanQueueDir(carddir, fname)
+		if err != nil {
+			continue
+		}
+		a.Gen = cgen
+		a.Mode = cmode
+		apqns = append(apqns, a)
+	}
+
+	//fmt.Printf("debug: apScanCardDir apqns=%s\n", apqnsAsString(apqns))
+	return apqns, nil
+}
+
+func apScanAPQNs(verbose bool) (APQNList, error) {
+
+	var apqns APQNList
+
+	// scan ap bus dirs and fetch available apqns
+	files, err := ioutil.ReadDir(apsysfsdevsdir)
+	if err != nil {
+		log.Printf("Ap: Error reading AP devices sysfs dir: %s\n", err)
+		return nil, err
+	}
+	for _, file := range files {
+		fname := file.Name()
+		match, _ := regexp.MatchString("card[[:xdigit:]]{2}", fname)
+		if !match {
+			continue
+		}
+		//fmt.Printf("debug: scaning carddir %s\n", fname)
+		cardapqns, err := apScanCardDir(fname)
+		if err != nil {
+			return nil, err
+		}
+		apqns = append(apqns, cardapqns...)
+	}
+
+	if verbose {
+		log.Printf("Ap: apScanAPQNs() found %d APQNs: %s\n", len(apqns), apqns)
+	}
+
+	return apqns, nil
+}
+
 func apEqualAPQNLists(l1, l2 APQNList) bool {
 
 	var found bool

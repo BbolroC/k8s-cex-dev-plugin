@@ -146,6 +146,33 @@ func (s *server) FetchActiveShadows(ctx context.Context, req *pb.FetchActiveShad
 	}, nil
 }
 
+// ScanAPQNs is the RPC handler for scanning APQNs
+func (s *server) ScanAPQNs(ctx context.Context, req *pb.ScanAPQNsRequest) (*pb.ScanAPQNsResponse, error) {
+	apqns, err := apScanAPQNs(req.Verbose)
+	if err != nil {
+		return &pb.ScanAPQNsResponse{
+			Apqns:        nil,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	var pbAPQNs []*pb.APQN
+	for _, a := range apqns {
+		pbAPQNs = append(pbAPQNs, &pb.APQN{
+			Adapter: int32(a.Adapter),
+			Domain:  int32(a.Domain),
+			Gen:     a.Gen,
+			Mode:    a.Mode,
+			Online:  a.Online,
+		})
+	}
+
+	return &pb.ScanAPQNsResponse{
+		Apqns:        pbAPQNs,
+		ErrorMessage: "",
+	}, nil
+}
+
 func main() {
 	log.Printf("Starting zcrypt gRPC server on port %s", grpcPort)
 	lis, err := net.Listen("tcp", grpcPort)

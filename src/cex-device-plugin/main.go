@@ -66,8 +66,16 @@ func main() {
 	MachineId = mid
 	log.Printf("Main: Machine id is '%s'\n", MachineId)
 
+	// Initialize gRPC client first
+	if err := InitGrpcClient(context.Background(), "localhost:50051"); err != nil {
+		log.Fatalf("Main: Failed to initialize gRPC client: %s\n", err)
+	}
+	defer CloseGrpcConn()
+
 	// initial list of the available apqns on this node or die
-	_, err = apScanAPQNs(true)
+	_, err = WithGrpcCall(context.Background(), 10, "ScanAPQNs", func(client pb.ZCryptManagerClient) (*pb.ScanAPQNsResponse, error) {
+		return client.ScanAPQNs(context.Background(), &pb.ScanAPQNsRequest{Verbose: true})
+	})
 	if err != nil {
 		log.Fatalf("Main: Initial scan of the available APQNs on this node failed: %s\n", err)
 	}
@@ -85,12 +93,6 @@ func main() {
 	if !cc.Verify() {
 		log.Fatalf("Main: Crypto configuration verification failed.\n")
 	}
-
-	// Initialize gRPC client first
-	if err := InitGrpcClient(context.Background(), "localhost:50051"); err != nil {
-		log.Fatalf("Main: Failed to initialize gRPC client: %s\n", err)
-	}
-	defer CloseGrpcConn()
 
 	// check if zcrypt has multiple nodes support
 	resp, err := WithGrpcCall(context.Background(), 10, "HasNodesSupport", func(client pb.ZCryptManagerClient) (*pb.HasNodesSupportResponse, error) {

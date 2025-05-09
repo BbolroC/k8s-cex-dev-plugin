@@ -121,10 +121,22 @@ func (p *ZMdevResPlugin) checkChanged() bool {
 	var apqnsChanged, configChanged bool
 	ccset, tag := GetCurrentCryptoConfigSet(p.ccset, p.resource, p.tag)
 
-	allnodeapqns, err := apScanAPQNs(false)
+	resp, err := WithGrpcCall(context.Background(), 10, "ScanAPQNs", func(client pb.ZCryptManagerClient) (*pb.ScanAPQNsResponse, error) {
+		return client.ScanAPQNs(context.Background(), &pb.ScanAPQNsRequest{Verbose: false})
+	})
 	if err != nil {
 		log.Printf("MDEV Plugin['%s']: failure trying to rescan node APQNs: %s\n", p.resource, err)
 		return false
+	}
+	allnodeapqns := make(APQNList, 0, len(resp.Apqns))
+	for _, apqn := range resp.Apqns {
+		allnodeapqns = append(allnodeapqns, &APQN{
+			Adapter: int(apqn.Adapter),
+			Domain:  int(apqn.Domain),
+			Gen:     apqn.Gen,
+			Mode:    apqn.Mode,
+			Online:  apqn.Online,
+		})
 	}
 
 	// check for change in APQNs
@@ -177,10 +189,22 @@ ForLoop:
 func (p *ZMdevResPlugin) Start() error {
 	log.Printf("ZMdevResPlugin['%s']: Start()\n", p.resource)
 
-	allnodeapqns, err := apScanAPQNs(false)
+	resp, err := WithGrpcCall(context.Background(), 10, "ScanAPQNs", func(client pb.ZCryptManagerClient) (*pb.ScanAPQNsResponse, error) {
+		return client.ScanAPQNs(context.Background(), &pb.ScanAPQNsRequest{Verbose: false})
+	})
 	if err != nil {
 		log.Printf("MDEV Plugin['%s']: failure trying to scan node APQNs: %s\n", p.resource, err)
 		return fmt.Errorf("MDEV Plugin['%s']: fatal failure at start", p.resource)
+	}
+	allnodeapqns := make(APQNList, 0, len(resp.Apqns))
+	for _, apqn := range resp.Apqns {
+		allnodeapqns = append(allnodeapqns, &APQN{
+			Adapter: int(apqn.Adapter),
+			Domain:  int(apqn.Domain),
+			Gen:     apqn.Gen,
+			Mode:    apqn.Mode,
+			Online:  apqn.Online,
+		})
 	}
 
 	p.apqns = p.filterAPQNs(p.ccset, allnodeapqns)

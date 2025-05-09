@@ -40,6 +40,8 @@ type ZCryptManagerClient interface {
 	DelShadowSysfs(ctx context.Context, in *DelShadowSysfsRequest, opts ...grpc.CallOption) (*DelShadowSysfsResponse, error)
 	// RPC method to fetch active shadow sysfs directories
 	FetchActiveShadows(ctx context.Context, in *FetchActiveShadowsRequest, opts ...grpc.CallOption) (*FetchActiveShadowsResponse, error)
+	// RPC method to fetch available APQNs
+	ScanAPQNs(ctx context.Context, in *ScanAPQNsRequest, opts ...grpc.CallOption) (*ScanAPQNsResponse, error)
 }
 
 type zCryptManagerClient struct {
@@ -131,6 +133,15 @@ func (c *zCryptManagerClient) FetchActiveShadows(ctx context.Context, in *FetchA
 	return out, nil
 }
 
+func (c *zCryptManagerClient) ScanAPQNs(ctx context.Context, in *ScanAPQNsRequest, opts ...grpc.CallOption) (*ScanAPQNsResponse, error) {
+	out := new(ScanAPQNsResponse)
+	err := c.cc.Invoke(ctx, "/zcrypt.ZCryptManager/ScanAPQNs", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ZCryptManagerServer is the server API for ZCryptManager service.
 // All implementations must embed UnimplementedZCryptManagerServer
 // for forward compatibility
@@ -153,6 +164,8 @@ type ZCryptManagerServer interface {
 	DelShadowSysfs(context.Context, *DelShadowSysfsRequest) (*DelShadowSysfsResponse, error)
 	// RPC method to fetch active shadow sysfs directories
 	FetchActiveShadows(context.Context, *FetchActiveShadowsRequest) (*FetchActiveShadowsResponse, error)
+	// RPC method to fetch available APQNs
+	ScanAPQNs(context.Context, *ScanAPQNsRequest) (*ScanAPQNsResponse, error)
 	mustEmbedUnimplementedZCryptManagerServer()
 }
 
@@ -186,6 +199,9 @@ func (UnimplementedZCryptManagerServer) DelShadowSysfs(context.Context, *DelShad
 }
 func (UnimplementedZCryptManagerServer) FetchActiveShadows(context.Context, *FetchActiveShadowsRequest) (*FetchActiveShadowsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FetchActiveShadows not implemented")
+}
+func (UnimplementedZCryptManagerServer) ScanAPQNs(context.Context, *ScanAPQNsRequest) (*ScanAPQNsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ScanAPQNs not implemented")
 }
 func (UnimplementedZCryptManagerServer) mustEmbedUnimplementedZCryptManagerServer() {}
 
@@ -362,6 +378,24 @@ func _ZCryptManager_FetchActiveShadows_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ZCryptManager_ScanAPQNs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ScanAPQNsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ZCryptManagerServer).ScanAPQNs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/zcrypt.ZCryptManager/ScanAPQNs",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ZCryptManagerServer).ScanAPQNs(ctx, req.(*ScanAPQNsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ZCryptManager_ServiceDesc is the grpc.ServiceDesc for ZCryptManager service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -404,6 +438,10 @@ var ZCryptManager_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FetchActiveShadows",
 			Handler:    _ZCryptManager_FetchActiveShadows_Handler,
+		},
+		{
+			MethodName: "ScanAPQNs",
+			Handler:    _ZCryptManager_ScanAPQNs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
