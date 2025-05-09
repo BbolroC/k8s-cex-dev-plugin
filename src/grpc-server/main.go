@@ -173,6 +173,22 @@ func (s *server) ScanAPQNs(ctx context.Context, req *pb.ScanAPQNsRequest) (*pb.S
 	}, nil
 }
 
+// GetQueueRequestCounter is the RPC handler for getting queue request counter
+func (s *server) GetQueueRequestCounter(ctx context.Context, req *pb.GetQueueRequestCounterRequest) (*pb.GetQueueRequestCounterResponse, error) {
+	counter, err := apGetQueueRequestCounter(int(req.Adapter), int(req.Domain))
+	if err != nil {
+		return &pb.GetQueueRequestCounterResponse{
+			Counter:      0,
+			ErrorMessage: err.Error(),
+		}, nil
+	}
+
+	return &pb.GetQueueRequestCounterResponse{
+		Counter:      int32(counter),
+		ErrorMessage: "",
+	}, nil
+}
+
 func main() {
 	log.Printf("Starting zcrypt gRPC server on port %s", grpcPort)
 	lis, err := net.Listen("tcp", grpcPort)

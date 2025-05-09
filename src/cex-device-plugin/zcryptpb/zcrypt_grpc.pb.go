@@ -42,6 +42,8 @@ type ZCryptManagerClient interface {
 	FetchActiveShadows(ctx context.Context, in *FetchActiveShadowsRequest, opts ...grpc.CallOption) (*FetchActiveShadowsResponse, error)
 	// RPC method to fetch available APQNs
 	ScanAPQNs(ctx context.Context, in *ScanAPQNsRequest, opts ...grpc.CallOption) (*ScanAPQNsResponse, error)
+	// RPC method to get queue request counter
+	GetQueueRequestCounter(ctx context.Context, in *GetQueueRequestCounterRequest, opts ...grpc.CallOption) (*GetQueueRequestCounterResponse, error)
 }
 
 type zCryptManagerClient struct {
@@ -142,6 +144,15 @@ func (c *zCryptManagerClient) ScanAPQNs(ctx context.Context, in *ScanAPQNsReques
 	return out, nil
 }
 
+func (c *zCryptManagerClient) GetQueueRequestCounter(ctx context.Context, in *GetQueueRequestCounterRequest, opts ...grpc.CallOption) (*GetQueueRequestCounterResponse, error) {
+	out := new(GetQueueRequestCounterResponse)
+	err := c.cc.Invoke(ctx, "/zcrypt.ZCryptManager/GetQueueRequestCounter", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ZCryptManagerServer is the server API for ZCryptManager service.
 // All implementations must embed UnimplementedZCryptManagerServer
 // for forward compatibility
@@ -166,6 +177,8 @@ type ZCryptManagerServer interface {
 	FetchActiveShadows(context.Context, *FetchActiveShadowsRequest) (*FetchActiveShadowsResponse, error)
 	// RPC method to fetch available APQNs
 	ScanAPQNs(context.Context, *ScanAPQNsRequest) (*ScanAPQNsResponse, error)
+	// RPC method to get queue request counter
+	GetQueueRequestCounter(context.Context, *GetQueueRequestCounterRequest) (*GetQueueRequestCounterResponse, error)
 	mustEmbedUnimplementedZCryptManagerServer()
 }
 
@@ -202,6 +215,9 @@ func (UnimplementedZCryptManagerServer) FetchActiveShadows(context.Context, *Fet
 }
 func (UnimplementedZCryptManagerServer) ScanAPQNs(context.Context, *ScanAPQNsRequest) (*ScanAPQNsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ScanAPQNs not implemented")
+}
+func (UnimplementedZCryptManagerServer) GetQueueRequestCounter(context.Context, *GetQueueRequestCounterRequest) (*GetQueueRequestCounterResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetQueueRequestCounter not implemented")
 }
 func (UnimplementedZCryptManagerServer) mustEmbedUnimplementedZCryptManagerServer() {}
 
@@ -396,6 +412,24 @@ func _ZCryptManager_ScanAPQNs_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ZCryptManager_GetQueueRequestCounter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetQueueRequestCounterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ZCryptManagerServer).GetQueueRequestCounter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/zcrypt.ZCryptManager/GetQueueRequestCounter",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ZCryptManagerServer).GetQueueRequestCounter(ctx, req.(*GetQueueRequestCounterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ZCryptManager_ServiceDesc is the grpc.ServiceDesc for ZCryptManager service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -442,6 +476,10 @@ var ZCryptManager_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ScanAPQNs",
 			Handler:    _ZCryptManager_ScanAPQNs_Handler,
+		},
+		{
+			MethodName: "GetQueueRequestCounter",
+			Handler:    _ZCryptManager_GetQueueRequestCounter_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

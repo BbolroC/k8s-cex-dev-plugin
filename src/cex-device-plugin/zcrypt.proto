@@ -27,6 +27,8 @@ service ZCryptManager {
   rpc FetchActiveShadows (FetchActiveShadowsRequest) returns (FetchActiveShadowsResponse) {}
   // RPC method to fetch available APQNs
   rpc ScanAPQNs (ScanAPQNsRequest) returns (ScanAPQNsResponse) {}
+  // RPC method to get queue request counter
+  rpc GetQueueRequestCounter (GetQueueRequestCounterRequest) returns (GetQueueRequestCounterResponse) {}
 }
 
 // The request message containing necessary info for node creation.
@@ -155,5 +157,17 @@ message APQN {
 // The response message for scanning APQNs
 message ScanAPQNsResponse {
   repeated APQN apqns = 1;
+  string error_message = 2;
+}
+
+// The request message for getting queue request counter
+message GetQueueRequestCounterRequest {
+  int32 adapter = 1;
+  int32 domain = 2;
+}
+
+// The response message for getting queue request counter
+message GetQueueRequestCounterResponse {
+  int32 counter = 1;
   string error_message = 2;
 }

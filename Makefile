@@ -68,7 +68,7 @@ build-cex-device-plugin-image:
 .PHONY: build-grpc-server-image
 build-grpc-server-image:
 	cd src && \
-	$(RUNTIME) build -f grpc-server/Dockerfile -t localhost:5000/grpc-server:0.0.11 .
+	$(RUNTIME) build -f grpc-server/Dockerfile -t localhost:5000/grpc-server:0.0.12 .
 
 .PHONY: buildah-cex-device-plugin-image
 buildah-cex-device-plugin-image:

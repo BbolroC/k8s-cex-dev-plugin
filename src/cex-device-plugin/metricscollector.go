@@ -25,6 +25,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -33,6 +34,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	pb "cex-plugin/zcryptpb"
 )
 
 var (
@@ -165,7 +168,7 @@ func MetricsCollAPQNs(setname string, apqns APQNList) {
 		if _, found = cse.apqns[k]; !found {
 			cse.apqns[k] = &apqn_entry_s{}
 			ae := cse.apqns[k]
-			ae.start_request_count, _ = apGetQueueRequestCounter(k/256, k%256)
+			ae.start_request_count, _ = getQueueRequestCounterViaGrpc(k/256, k%256)
 		}
 	}
 
@@ -329,7 +332,7 @@ func (mc *MetricsCollector) doLoop() {
 		}
 		// fetch the current request count value for all APQNs
 		for k, ae := range cse.apqns {
-			ae.current_request_count, _ = apGetQueueRequestCounter(k/256, k%256)
+			ae.current_request_count, _ = getQueueRequestCounterViaGrpc(k/256, k%256)
 			if ae.start_request_count == 0 {
 				ae.start_request_count = ae.current_request_count
 			}
@@ -438,4 +441,20 @@ func (mc *MetricsCollector) sendDataToPromExp(senddata *pe_data_s) bool {
 	log.Printf("MetricsColl: %d bytes metrics data pushed successful to cex-prometheus-exporter\n", len(data))
 
 	return true
+}
+
+func getQueueRequestCounterViaGrpc(ap, dom int) (int, error) {
+	resp, err := WithGrpcCall(context.Background(), 10, "GetQueueRequestCounter", func(client pb.ZCryptManagerClient) (*pb.GetQueueRequestCounterResponse, error) {
+		return client.GetQueueRequestCounter(context.Background(), &pb.GetQueueRequestCounterRequest{
+			Adapter: int32(ap),
+			Domain:  int32(dom),
+		})
+	})
+	if err != nil {
+		return 0, err
+	}
+	if resp.ErrorMessage != "" {
+		return 0, fmt.Errorf(resp.ErrorMessage)
+	}
+	return int(resp.Counter), nil
 }
