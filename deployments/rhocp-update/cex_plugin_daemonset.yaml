@@ -44,14 +44,6 @@ spec:
             mountPath: /var/lib/kubelet/device-plugins
           - name: pod-resources
             mountPath: /var/lib/kubelet/pod-resources
-          - name: vartmp
-            mountPath: /var/tmp
-          - name: dev
-            mountPath: /dev
-          - name: sys
-            mountPath: /sys
-          - name: tmp-volume
-            mountPath: /tmp
           - name: cex-resources-conf
             # the cex_resources.json file is showing up in this dir
             mountPath: /config/
